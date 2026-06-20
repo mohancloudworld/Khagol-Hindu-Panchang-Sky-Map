@@ -1,0 +1,11 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*~
+.idea/
+.vscode/
+
+# Build / packaging artifacts
+*.zip
+*.xpi
+node_modules/

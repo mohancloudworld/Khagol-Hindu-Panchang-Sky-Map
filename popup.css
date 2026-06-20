@@ -1,0 +1,60 @@
+:root {
+  --bg: #11131a;
+  --panel: #1a1d28;
+  --fg: #e8ecf6;
+  --muted: #9aa4bd;
+  --accent: #ffd24a;
+  --line: #2a2f40;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  width: 320px;
+  font: 13px/1.45 system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+.pp-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 10px 12px; border-bottom: 1px solid var(--line);
+}
+.pp-date { font-weight: 600; }
+.pp-place { color: var(--muted); font-size: 12px; }
+.pp-when {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-bottom: 1px solid var(--line);
+}
+.pp-when input { flex: 1; background: var(--card, #1a1f2e); color: inherit; border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; font: inherit; }
+.pp-body { padding: 6px 0; min-height: 120px; }
+.pp-loading { padding: 24px 12px; color: var(--muted); text-align: center; }
+
+.pp-row {
+  display: flex; justify-content: space-between; gap: 10px;
+  padding: 7px 12px; border-bottom: 1px solid var(--line);
+}
+.pp-row:last-child { border-bottom: 0; }
+.pp-k { color: var(--muted); }
+.pp-v { text-align: right; font-weight: 600; }
+.pp-next { display: block; color: var(--muted); font-weight: 400; font-size: 11px; }
+
+.pp-locform { padding: 10px 12px; border-top: 1px solid var(--line); }
+.pp-locform label { display: block; margin-bottom: 8px; color: var(--muted); }
+.pp-locform input {
+  width: 100%; margin-top: 3px; padding: 6px 8px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; color: var(--fg);
+}
+.pp-loc-actions { display: flex; gap: 8px; }
+.pp-loc-actions button {
+  flex: 1; padding: 7px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--panel); color: var(--fg); cursor: pointer;
+}
+.pp-loc-actions button:hover { border-color: var(--accent); }
+.pp-tz { color: var(--muted); font-size: 11px; margin: 8px 0 0; }
+
+.pp-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px;
+}
+.pp-link { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; font: inherit; }
+
+.pp-hint { color: var(--muted); font-size: 10px; margin: 6px 0 0; opacity: 0.8; }

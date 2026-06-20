@@ -1,0 +1,35 @@
+<!-- App icon source: AUM at centre, two planet orbits, and the 12-tick sidereal Rashi band (the app's
+     three pillars in one mark). Palette matches the app theme: navy bg, saffron-gold, planet hues.
+     Re-render PNGs: rsvg-convert -w N -h N icon.svg -o icon-N.png  (needs a Devanagari font such as
+     Noto Sans Devanagari so the AUM glyph rasterizes). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="48%" r="74%">
+      <stop offset="0%" stop-color="#15203a"/><stop offset="100%" stop-color="#0b0e1a"/>
+    </radialGradient>
+    <radialGradient id="om" cx="50%" cy="45%" r="62%">
+      <stop offset="0%" stop-color="#ffe08a"/><stop offset="100%" stop-color="#e0a93a"/>
+    </radialGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <!-- outer rashi band: ring + 12 sector ticks -->
+  <circle cx="64" cy="64" r="52" fill="none" stroke="#e0a93a" stroke-width="2" opacity="0.85"/>
+  <path fill="none" stroke="#f0c060" stroke-width="2" stroke-linecap="round"
+        d="M64,12 L64,21 M90,19.9 L85.5,28 M108.3,38 L101,43 M116,64 L107,64
+           M108.3,90 L101,85 M90,108.1 L85.5,100 M64,116 L64,107 M38,108.1 L42.5,100
+           M19.7,90 L27,85 M12,64 L21,64 M19.7,38 L27,43 M38,19.9 L42.5,28"/>
+  <!-- two planet orbits (orrery) -->
+  <g fill="none" stroke="#3a4a72" stroke-width="1.5">
+    <ellipse cx="64" cy="64" rx="36" ry="32"/>
+    <ellipse cx="64" cy="64" rx="22" ry="19"/>
+  </g>
+  <!-- 2 planets on the OUTER orbit (rx36 ry32) -->
+  <circle cx="82" cy="36.3" r="4.2" fill="#5b9bd5"/>
+  <circle cx="46" cy="91.7" r="4.6" fill="#d8b890"/>
+  <!-- 2 planets on the INNER orbit (rx22 ry19) -->
+  <circle cx="86" cy="64" r="3.4" fill="#d06a40"/>
+  <circle cx="42" cy="64" r="3" fill="#a0d0d0"/>
+  <!-- AUM (hero) -->
+  <text x="64" y="80" font-family="Noto Sans Devanagari, system-ui, sans-serif" font-size="44"
+        fill="url(#om)" text-anchor="middle">ॐ</text>
+</svg>

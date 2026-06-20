@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Khagol — Hindu Panchang & Sky Map</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <meta name="theme-color" content="#0b0e1a" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+  <div id="sky-container" class="view-container"></div>
+  <div id="dome-container" class="view-container" hidden></div>
+  <div id="orrery-container" class="view-container" hidden></div>
+  <div id="panchang-container" class="view-container panel-view" hidden>
+    <div class="pj-subtabs">
+      <button class="pj-sub active" data-sub="today">Today</button>
+      <button class="pj-sub" data-sub="month">Month</button>
+      <button class="pj-sub" data-sub="saved">Saved</button>
+    </div>
+    <div id="pj-today" class="pj-pane"></div>
+    <div id="pj-month" class="pj-pane" hidden></div>
+    <div id="pj-saved" class="pj-pane" hidden></div>
+  </div>
+  <div id="kundali-container" class="view-container panel-view" hidden></div>
+  <button id="bars-handle" type="button" title="Hide menus" aria-label="Hide or show the top menus">▲</button>
+  <div id="top-bars">
+    <div id="view-bar-host"></div>
+    <div id="control-bar-host"></div>
+    <div id="overlay-bar-host"></div>
+  </div>
+  <div id="hud" class="hud"></div>
+  <div id="toast" class="toast" hidden></div>
+  <div id="offline-banner" class="offline-banner" hidden>offline — showing cached data</div>
+  <div class="hint">drag to look · wheel to zoom · time-lapse: J slower/reverse · L faster · K now · G grid</div>
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+{
+  "type": "module",
+  "private": true,
+  "description": "Frontend ES modules. This file only marks the dir as ESM for Node-based tests; browsers ignore it (modules load via <script type=\"module\">)."
+}

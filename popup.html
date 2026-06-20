@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="popup.css" />
+  <title>Khagol — Hindu Panchang & Sky Map</title>
+</head>
+<body>
+  <header class="pp-head">
+    <div class="pp-date" id="pp-date">—</div>
+    <div class="pp-place" id="pp-place"></div>
+  </header>
+  <div class="pp-when">
+    <input type="datetime-local" id="pp-dt" title="Date / time (shared with the sky map)" />
+    <button id="pp-now" type="button" class="pp-link">Now</button>
+  </div>
+  <main class="pp-body" id="pp-body"><div class="pp-loading" id="pp-loading">Computing…</div></main>
+  <section class="pp-locform" id="pp-locform" hidden>
+    <label>City<input id="pp-city" list="pp-cities" placeholder="search city…" autocomplete="off" /><datalist id="pp-cities"></datalist></label>
+    <div class="pp-loc-actions"><button id="pp-geo" type="button">Use my location</button></div>
+    <p class="pp-tz" id="pp-tz"></p>
+    <p class="pp-hint">City search works fully offline. “Use my location” needs a network service.</p>
+  </section>
+  <footer class="pp-foot">
+    <button id="pp-edit-loc" type="button" class="pp-link">📍 Location</button>
+    <button id="pp-open-app" type="button" class="pp-link">Open sky map →</button>
+  </footer>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
