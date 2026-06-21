@@ -2,10 +2,11 @@
 # Reproducible build of the Swiss Ephemeris (Moshier) WASM module for the extension.
 #
 # Provenance for store review (Mozilla AMO requires source + build steps for compiled code):
-#   - Source:     extension/vendor/swisseph-src  (Astrodienst aloistr/swisseph, AGPL-3.0)
-#   - Toolchain:  emscripten/emsdk:${EMSDK_TAG}  (pinned below)
-#   - Output:     extension/vendor/sweph.js + sweph.wasm
-# Run from the repo root:  bash extension/build-wasm.sh
+#   - Source:     vendor/swisseph-src  (Astrodienst aloistr/swisseph, AGPL-3.0)
+#   - Toolchain:  emscripten/emsdk:${EMSDK_TAG}  (pinned below; pulled automatically)
+#   - Output:     vendor/sweph.mjs + vendor/sweph.wasm
+# Requirements: Podman >=4 or Docker >=20 (nothing else; the compiler is the pinned image above).
+# Run:  bash build-wasm.sh   (it cd's to its own directory). See BUILD.md for full details.
 set -euo pipefail
 
 EMSDK_TAG="3.1.74"                       # pinned for byte-reproducible builds
@@ -30,5 +31,5 @@ podman run --rm -v "$PWD":/src:z -w /src "docker.io/emscripten/emsdk:${EMSDK_TAG
     -sALLOW_MEMORY_GROWTH=1 \
     -o "$OUT"
 
-echo "built: extension/${OUT} + .wasm"
+echo "built: ${OUT} + .wasm"
 ls -la sweph.js sweph.wasm 2>/dev/null || ls -la vendor/sweph.*
