@@ -8,9 +8,6 @@ import * as i18n from "./i18n.js";
 const RASHI = ["Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya",
   "Tula", "Vrischika", "Dhanu", "Makara", "Kumbha", "Meena"];
 
-// Short labels used in the Vimshottari matrix header (matches the PDF).
-const DASHA_LABEL = { Ketu: "Ke", Venus: "Ve", Sun: "Su", Moon: "Mo", Mars: "Ma", Rahu: "Ra", Jupiter: "Ju", Saturn: "Sa", Mercury: "Me" };
-
 // South-Indian fixed grid: rashi index -> [row, col] in a 4x4 grid (Section 9B.2). Mesha is
 // fixed at row0/col1 and the zodiac runs clockwise; the centre 2x2 holds the chart title.
 const CELL = {
@@ -137,7 +134,7 @@ export function createKundali(container) {
 
   function reportHeaderHtml(k) {
     const b = k._birth || {};
-    const name = getSavedName() || "Vedic Astro Chart";
+    const name = getSavedName() || "Khagol - Hindu Panchang & Sky Map Chart";
     return `
       <div class="kj-report-head">
         <div class="kj-rh-title">${name}</div>
@@ -149,14 +146,7 @@ export function createKundali(container) {
       </div>`;
   }
 
-  function summaryHtml(k) {
-    if (!k.summary) return "";
-    const s = k.summary;
-    const fmtDate = (iso) => {
-      const [y, m, d] = iso.split("-");
-      const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][+m - 1];
-      return `${d}-${mon}-${y.slice(2)}`;
-    };
+  function planetTableHtml(s) {
     const rows = s.rows.map((r) => `
       <tr>
         <td>${i18n.tr(r.name)}${r.retrograde ? " (R)" : ""}</td>
@@ -165,74 +155,91 @@ export function createKundali(container) {
         <td class="kj-num">${r.deg_dms}</td>
         <td>${i18n.tr(r.nakshatra)}-${r.pada}, ${i18n.tr(r.nakshatra_lord)}</td>
       </tr>`).join("");
-    const headLords = s.dashaMatrix.map((m) => `<th>${DASHA_LABEL[m.lord] || m.lord}</th>`).join("");
-    const matrixRows = s.dashaMatrix.map((maha) => {
-      const cells = maha.antar.map((a) => `<td class="kj-num">${fmtDate(a.start)}</td>`).join("");
-      return `<tr><th>${DASHA_LABEL[maha.lord] || maha.lord}</th>${cells}</tr>`;
-    }).join("");
     return `
       <div class="kj-report">
-        ${reportHeaderHtml(k)}
-        <div class="kj-report-hero">
-          <div><span class="kj-rh-label">Tithi</span><b>${i18n.tr(s.tithi)}</b></div>
-          <div><span class="kj-rh-label">Karana</span><b>${i18n.tr(s.karana)}</b></div>
-          <div><span class="kj-rh-label">Yoga</span><b>${i18n.tr(s.yoga)}</b></div>
-        </div>
+        <div class="kj-card-t kj-section-title">Planets</div>
         <table class="kj-report-tbl">
           <thead><tr><th>Planet</th><th>Zodiac</th><th>House</th><th>Degree</th><th>Nakshatra</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
-        <div class="kj-report-dasha">
-          <div class="kj-card-t">Vimsottari Maha Dasas</div>
-          <div class="kj-dasha-scroll">
-            <table class="kj-dasha-matrix">
-              <thead><tr><th></th>${headLords}</tr></thead>
-              <tbody>${matrixRows}</tbody>
-            </table>
-          </div>
+      </div>`;
+  }
+
+  function dashaTableHtml(k) {
+    const s = k.summary;
+    const cur = k.current_dasha;
+    const dashaRows = k.dashas.map((d) => `
+      <tr class="${d.lord === (k.current_dasha.maha || "") ? "cur" : ""}">
+        <td>${d.lord}</td><td>${d.start}</td><td>${d.end}</td>
+      </tr>`).join("");
+    return `
+      <div class="kj-report">
+        <div class="kj-card-t kj-section-title">Vimshottari dasha</div>
+        <div class="kj-report-subtitle">
+          <div><span class="kj-rh-label">Janma Lord</span><span class="kj-rh-val">${k.dasha_summary.janma_lord}</span></div>
+          <div><span class="kj-rh-label">Balance</span><span class="kj-rh-val">${k.dasha_summary.balance_years} YR</span></div>
+          ${cur.maha ? `<div class="kj-curdasha-line"><span class="kj-rh-label">Current</span><span class="kj-rh-val">${cur.maha} maha / ${cur.antar || "—"} antar · ends ${cur.maha_ends}</span></div>` : ""}
         </div>
+        <table class="kj-report-dasha-tbl">
+          <thead><tr><th>Lord</th><th>Start</th><th>End</th></tr></thead>
+          <tbody>${dashaRows}</tbody>
+        </table>
         <div class="kj-report-foot">${k.ayanamsa} ayanamsa · ${s.ayanamsa_dms} · computed report, not a substitute for a qualified astrologer.</div>
       </div>`;
   }
 
+  function reportIntroHtml(k) {
+    if (!k.summary) return "";
+    const s = k.summary;
+    const bp = k.birth_panchang;
+    return `
+      <div class="kj-report kj-report-intro">
+        ${reportHeaderHtml(k)}
+        <div class="kj-report-hero">
+          <div><span class="kj-rh-label">Tithi</span><span class="kj-rh-val">${i18n.tr(s.tithi)}</span></div>
+          <div><span class="kj-rh-label">Karana</span><span class="kj-rh-val">${i18n.tr(s.karana)}</span></div>
+          <div><span class="kj-rh-label">Yoga</span><span class="kj-rh-val">${i18n.tr(s.yoga)}</span></div>
+        </div>
+        <div class="kj-report-bp">
+          <div><span class="kj-rh-label">Vara</span><span class="kj-rh-val">${i18n.tr(bp.vara)}</span></div>
+          <div><span class="kj-rh-label">Chandra Rashi</span><span class="kj-rh-val">${i18n.tr(bp.chandra_rashi)}</span></div>
+          <div><span class="kj-rh-label">Surya Rashi</span><span class="kj-rh-val">${i18n.tr(bp.surya_rashi)}</span></div>
+          <div><span class="kj-rh-label">Janma Nakshatra</span><span class="kj-rh-val">${i18n.tr(bp.janma_nakshatra)} pada ${bp.pada}</span></div>
+        </div>
+      </div>`;
+  }
+
+  function summaryHtml(k) {
+    if (!k.summary) return "";
+    return planetTableHtml(k.summary) + dashaTableHtml(k);
+  }
+
+  function dashaHtml(k) { return ""; }
+
   function render(k) {
     const lookup = { La: { name: "Lagna (ascendant)", retro: false } };
     for (const g of k.grahas) lookup[g.label] = { name: g.name, retro: g.retrograde };
-    const bp = k.birth_panchang;
-    const cur = k.current_dasha;
+    const charts = `
+      <div>${svgChart("Rasi", k.rasi_chart, k.lagna.rashi, lookup)}</div>
+      <div>${svgChart("Navamsa", k.navamsa_chart, k.lagna.navamsa_rashi, lookup)}</div>`;
     result.innerHTML = `
       <div class="kj-toolbar">
         <label class="kj-name-lbl">Name<input type="text" id="kj-name" class="kj-name" placeholder="optional" value="${getSavedName().replace(/"/g, "&quot;")}"></label>
         <button class="kj-pdf-btn" type="button" title="Save this summary as PDF">📄 Export PDF</button>
       </div>
-      <div class="kj-charts">
-        <div>${svgChart("Rasi", k.rasi_chart, k.lagna.rashi, lookup)}</div>
-        <div>${svgChart("Navamsa", k.navamsa_chart, k.lagna.navamsa_rashi, lookup)}</div>
-      </div>
-      <div class="pj-card kj-card">
-        <div class="pj-card-t">Birth panchang</div>
-        <div class="kj-bp">
-          <span>Janma nakshatra: <b>${i18n.tr(bp.janma_nakshatra)}</b> pada ${bp.pada}</span>
-          <span>Chandra rashi: <b>${i18n.tr(bp.chandra_rashi)}</b></span>
-          <span>Surya rashi: <b>${i18n.tr(bp.surya_rashi)}</b></span>
-          <span>Tithi: <b>${i18n.tr(bp.tithi)}</b></span>
-          <span>Vara: <b>${i18n.tr(bp.vara)}</b></span>
-          <span>Yoga: <b>${i18n.tr(bp.yoga)}</b> · Karana: <b>${i18n.tr(bp.karana)}</b></span>
-        </div>
-      </div>
-      <div class="pj-card kj-card">
-        <div class="pj-card-t">Vimshottari dasha — janma lord ${k.dasha_summary.janma_lord} (balance ${k.dasha_summary.balance_years} yr)</div>
-        ${cur.maha ? `<div class="kj-curdasha">Current: <b>${cur.maha}</b> maha / <b>${cur.antar || "—"}</b> antar · maha ends ${cur.maha_ends}</div>` : `<div class="kj-curdasha">(dasha cycle of 120 yr has completed)</div>`}
-        <details><summary>full maha-dasha timeline</summary>
-          <table class="kj-dasha">${k.dashas.map((d) => `<tr class="${d.lord === (cur.maha || "") ? "cur" : ""}"><td>${d.lord}</td><td>${d.start}</td><td>${d.end}</td></tr>`).join("")}</table>
-        </details>
-      </div>
+      ${reportIntroHtml(k)}
+      <div class="kj-charts">${charts}</div>
       ${summaryHtml(k)}
+      ${dashaHtml(k)}
       ${interpHtml(k.interpretation)}
       <div class="kj-foot">${k.ayanamsa} ayanamsa · ${k.node} node · computed, not a substitute for a qualified astrologer's reading. Historical births use the location's historically-correct timezone offset.</div>`;
 
     const pdfBtn = result.querySelector(".kj-pdf-btn");
     if (pdfBtn) pdfBtn.addEventListener("click", () => {
+      const nameInput = result.querySelector("#kj-name");
+      if (nameInput) {
+        try { localStorage.setItem(NAME_KEY, nameInput.value.trim()); } catch { /* ignore */ }
+      }
       document.body.classList.add("kj-printing-report");
       setTimeout(() => { window.print(); document.body.classList.remove("kj-printing-report"); }, 50);
     });

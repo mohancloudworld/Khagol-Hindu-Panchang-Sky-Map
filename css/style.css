@@ -301,7 +301,12 @@ body.deeptime-open .hint { display: none; }
   .view-bar, .control-bar, .overlay-bar, .hud, .hint, .toast, .search-box,
   .settings-gear, .settings-panel, .infopanel, .offline-banner { display: none !important; }
   #kundali-container { position: static !important; padding: 12px 16px !important; }
-  .kj-toolbar, .kj-charts, .kj-card, .kj-interp, .kj-foot { display: none !important; }
+  .kj-toolbar, .kj-card, .kj-interp, .kj-foot { display: none !important; }
+  .kj-charts {
+    display: flex !important; justify-content: space-between; gap: 24px; margin-bottom: 14px; page-break-inside: avoid;
+    flex-wrap: nowrap !important; max-width: 680px; margin-left: auto; margin-right: auto;
+  }
+  .kj-charts .kc-svg { width: 260px; height: 260px; }
   .kj-report {
     display: block !important; background: #fff !important; color: #000 !important;
     border: none !important; border-radius: 0 !important; max-width: none !important;
@@ -310,10 +315,15 @@ body.deeptime-open .hint { display: none; }
   .kj-report-head, .kj-report-hero, .kj-report-tbl, .kj-report-dasha, .kj-report-foot { color: #000 !important; }
   .kj-rh-title { color: #000 !important; }
   .kj-rh-meta, .kj-rh-label, .kj-report-foot { color: #333 !important; }
-  .kj-report-tbl th, .kj-dasha-matrix th, .kj-dasha-matrix td { border-color: #999 !important; color: #000 !important; }
+  .kj-report-tbl th, .kj-report-dasha-tbl th, .kj-report-dasha-tbl td { border-color: #999 !important; color: #000 !important; }
   .kj-report-tbl td { border-color: #ccc !important; color: #000 !important; }
-  .kj-dasha-matrix { font-size: 9px !important; }
   .kj-report-tbl { font-size: 12px !important; }
+  .kj-report-charts {
+    display: flex !important; justify-content: space-between; gap: 24px; margin-bottom: 14px; page-break-inside: avoid;
+    flex-wrap: nowrap !important;
+  }
+  .kj-report-charts .kc-svg { width: 260px; height: 260px; }
+  .kj-report-tbl, .kj-report-dasha { width: 100% !important; max-width: none !important; }
 }
 
 /* Screen preview while the print dialog is open (Export PDF button). */
@@ -335,7 +345,6 @@ body.kj-printing-report #bars-handle { display: none !important; }
 body.kj-printing-report #kundali-container { position: static !important; padding: 12px 16px !important; }
 body.kj-printing-report .kj-pane { max-width: none; margin: 0; }
 body.kj-printing-report .kj-toolbar,
-body.kj-printing-report .kj-charts,
 body.kj-printing-report .kj-card,
 body.kj-printing-report .kj-interp,
 body.kj-printing-report .kj-foot { display: none !important; }
@@ -349,13 +358,21 @@ body.kj-printing-report .kj-report-tbl,
 body.kj-printing-report .kj-report-dasha,
 body.kj-printing-report .kj-report-foot { color: #000; }
 body.kj-printing-report .kj-rh-title { color: #000; }
+body.kj-printing-report .kj-rh-val { color: #000; }
 body.kj-printing-report .kj-rh-meta,
 body.kj-printing-report .kj-rh-label,
 body.kj-printing-report .kj-report-foot { color: #333; }
 body.kj-printing-report .kj-report-tbl th,
-body.kj-printing-report .kj-dasha-matrix th,
-body.kj-printing-report .kj-dasha-matrix td { border-color: #999; color: #000; }
+body.kj-printing-report .kj-report-dasha-tbl th,
+body.kj-printing-report .kj-report-dasha-tbl td { border-color: #999; color: #000; }
 body.kj-printing-report .kj-report-tbl td { border-color: #ccc; color: #000; }
+body.kj-printing-report .kj-report-tbl,
+body.kj-printing-report .kj-report-dasha { width: 100% !important; max-width: none !important; }
+body.kj-printing-report .kj-charts {
+  display: flex !important; justify-content: space-between; gap: 24px; margin-bottom: 14px;
+  flex-wrap: nowrap !important; max-width: 680px; margin-left: auto; margin-right: auto;
+}
+body.kj-printing-report .kj-charts .kc-svg { width: 260px; height: 260px; }
 
 .search-box {
   position: fixed;
@@ -481,10 +498,10 @@ body.kj-printing-report .kj-report-tbl td { border-color: #ccc; color: #000; }
 .cal-loading { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 30px; }
 
 /* --- Kundali (Phase 9B) ------------------------------------------------- */
-.kj-pane { max-width: 1000px; margin: 0 auto; }
+.kj-pane { max-width: 680px; margin: 0 auto; }
 
 /* --- Kundali interpretation accordion (Phase 9C) ------------------------ */
-.kj-interp { margin-top: 16px; }
+.kj-interp { margin: 16px auto 0; max-width: 680px; }
 .kj-disclaimer { background: #2a2410; border: 1px solid #5a4a18; color: #d8c890;
   border-radius: 8px; padding: 9px 12px; font-size: 12px; margin-bottom: 12px; }
 .kj-acc { background: var(--panel); border: 1px solid #232d48; border-radius: 9px;
@@ -513,7 +530,7 @@ body.kj-printing-report .kj-report-tbl td { border-color: #ccc; color: #000; }
   padding: 18px 20px; color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center; }
 .kj-prompt b { color: var(--fg); }
 
-.kj-charts { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; }
+.kj-charts { display: flex; flex-wrap: wrap; gap: 18px; justify-content: space-between; max-width: 680px; margin: 16px auto 0; }
 .kc-svg { width: 300px; height: 300px; }
 .kc-cell { fill: #141a2e; stroke: #2c3858; stroke-width: 1; }
 .kc-lagna { stroke: var(--accent); stroke-width: 2; }
@@ -523,17 +540,17 @@ body.kj-printing-report .kj-report-tbl td { border-color: #ccc; color: #000; }
 .kc-sign { fill: #6a7a9a; font-size: 8px; }
 .kc-graha { fill: var(--fg); font-size: 12px; cursor: help; }
 
-.kj-card { max-width: 640px; margin: 14px auto 0; }
+.kj-card { max-width: 680px; margin: 16px auto 0; }
 .kj-bp { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; font-size: 13px; color: #aab4cc; }
 .kj-curdasha { font-size: 13px; color: var(--fg); margin: 4px 0; }
 .kj-dasha { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
 .kj-dasha td { padding: 2px 6px; border-bottom: 1px solid #1e2740; color: #aab4cc; }
 .kj-dasha tr.cur td { color: var(--accent); font-weight: 600; }
-.kj-foot { font-size: 11.5px; color: var(--muted); text-align: center; max-width: 640px; margin: 12px auto 0; }
+.kj-foot { font-size: 11.5px; color: var(--muted); text-align: center; max-width: 680px; margin: 16px auto 0; }
 .kj-loading { text-align: center; color: var(--muted); padding: 30px; }
 
 /* --- Kundali summary report (PDF-style) -------------------------------- */
-.kj-toolbar { display: flex; justify-content: space-between; align-items: center; max-width: 1000px; margin: 0 auto 8px; gap: 10px; }
+.kj-toolbar { display: flex; justify-content: space-between; align-items: center; max-width: 680px; margin: 0 auto 16px; gap: 10px; }
 .kj-name-lbl { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; }
 .kj-name { background: #0e1424; border: 1px solid #2a3552; border-radius: 5px; color: var(--fg); padding: 4px 7px; font-size: 12px; width: 140px; }
 .kj-pdf-btn {
@@ -544,26 +561,44 @@ body.kj-printing-report .kj-report-tbl td { border-color: #ccc; color: #000; }
 
 .kj-report {
   background: var(--panel); border: 1px solid #232d48; border-radius: 10px;
-  padding: 16px 18px; max-width: 1000px; margin: 16px auto 0;
+  padding: 16px 18px; max-width: 680px; margin: 16px auto 0;
 }
 .kj-report-head { text-align: center; margin-bottom: 14px; }
 .kj-rh-title { font-size: 20px; font-weight: 700; color: var(--accent); }
 .kj-rh-meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 12px; color: var(--muted); margin-top: 4px; }
 .kj-report-hero { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 24px; margin-bottom: 14px; }
+.kj-report-bp { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 18px; margin-bottom: 4px; }
+.kj-report-bp div { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.kj-report-bp .kj-rh-label { margin-right: 2px; }
 .kj-report-hero div { display: flex; align-items: center; gap: 8px; font-size: 14px; }
-.kj-rh-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+.kj-rh-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; margin-right: 6px; }
+.kj-rh-val { color: var(--fg); font-size: 14px; font-weight: 600; }
 
-.kj-report-tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
+.kj-report-charts { display: none; }
+.kj-section-title { text-align: center; font-weight: 700; font-size: 16px; margin-bottom: 6px; color: var(--accent); }
+.kj-report-subtitle { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px 32px; margin-bottom: 10px; }
+.kj-curdasha-line { width: 100%; text-align: center; }
+
+.kj-report-tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; table-layout: fixed; }
 .kj-report-tbl th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid #2a3552; }
 .kj-report-tbl td { padding: 5px 8px; border-bottom: 1px solid #1a2236; color: var(--fg); }
-.kj-report-tbl .kj-num { font-variant-numeric: tabular-nums; text-align: right; }
-.kj-report-tbl td:nth-child(3), .kj-report-tbl td:nth-child(4) { text-align: right; }
+.kj-report-tbl .kj-num { font-variant-numeric: tabular-nums; }
+.kj-report-tbl th:nth-child(1) { width: 22%; }
+.kj-report-tbl th:nth-child(2) { width: 18%; }
+.kj-report-tbl th:nth-child(3) { width: 12%; }
+.kj-report-tbl th:nth-child(4) { width: 24%; }
+.kj-report-tbl th:nth-child(5) { width: 24%; }
 
 .kj-report-dasha { margin-top: 10px; }
-.kj-dasha-scroll { overflow-x: auto; }
-.kj-dasha-matrix { width: 100%; border-collapse: collapse; font-size: 10.5px; min-width: 640px; }
-.kj-dasha-matrix th, .kj-dasha-matrix td { padding: 3px 5px; border: 1px solid #232d48; text-align: center; }
-.kj-dasha-matrix thead th { background: #1a2236; color: var(--muted); }
-.kj-dasha-matrix tbody th { background: #141a2e; color: var(--fg); }
-.kj-dasha-matrix .kj-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kj-report-dasha-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.kj-report-dasha-tbl th, .kj-report-dasha-tbl td { padding: 4px 8px; border-bottom: 1px solid #1a2236; text-align: left; }
+.kj-report-dasha-tbl th { color: var(--muted); border-bottom-color: #2a3552; }
+.kj-report-dasha-tbl tr.cur td { color: var(--accent); font-weight: 600; }
+.kj-report-dasha-tbl tbody tr { page-break-inside: avoid; }
 .kj-report-foot { font-size: 10.5px; color: var(--muted); text-align: center; margin-top: 12px; }
+
+@media print {
+  .kj-report-dasha-tbl th, .kj-report-dasha-tbl td { border-color: #ccc !important; color: #000 !important; }
+  .kj-report-dasha-tbl tr.cur td { color: #000 !important; font-weight: 700; }
+  .kj-report-dasha-tbl tbody tr { page-break-inside: avoid; }
+}
