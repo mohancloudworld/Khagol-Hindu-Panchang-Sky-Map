@@ -1,11 +1,15 @@
-// kundali.js -- South-Indian Kundali tab (Phase 9B.2): fixed-grid SVG charts. Birth inputs
-// come from the shared control bar (uniform across views); this module only casts + renders.
+// kundali.js -- South-Indian Kundali tab (Phase 9B.2): fixed-grid SVG charts + PDF-style
+// summary report. Birth inputs come from the shared control bar (uniform across views); this
+// module only casts + renders.
 
 import * as api from "./api.js";
 import * as i18n from "./i18n.js";
 
 const RASHI = ["Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya",
   "Tula", "Vrischika", "Dhanu", "Makara", "Kumbha", "Meena"];
+
+// Short labels used in the Vimshottari matrix header (matches the PDF).
+const DASHA_LABEL = { Ketu: "Ke", Venus: "Ve", Sun: "Su", Moon: "Mo", Mars: "Ma", Rahu: "Ra", Jupiter: "Ju", Saturn: "Sa", Mercury: "Me" };
 
 // South-Indian fixed grid: rashi index -> [row, col] in a 4x4 grid (Section 9B.2). Mesha is
 // fixed at row0/col1 and the zodiac runs clockwise; the centre 2x2 holds the chart title.
@@ -17,6 +21,7 @@ const CELL = {
 };
 
 const STORE_KEY = "kundali.birth";
+const NAME_KEY = "kundali.name";
 
 // Render the Phase 9C interpretation accordion (6 pillars). All text is generated server-side
 // from classical signification tables; this only lays it out.
@@ -105,6 +110,9 @@ export function createKundali(container) {
   function getSaved() {
     try { return JSON.parse(localStorage.getItem(STORE_KEY) || "null"); } catch { return null; }
   }
+  function getSavedName() {
+    try { return localStorage.getItem(NAME_KEY) || ""; } catch { return ""; }
+  }
 
   function prompt() {
     result.innerHTML = `<div class="kj-prompt">Enter the <b>birth place, date and time</b> in the bar above, then it casts automatically. Use the City search or Lat/Lon; times are 24-hour in the birth location's zone.</div>`;
@@ -120,10 +128,71 @@ export function createKundali(container) {
         dt: `${p.date}T${p.time || "00:00"}`, lat: +p.lat, lon: +p.lon,
         tz: p.tz || "auto", node: p.node, ayanamsa: p.ayanamsa,
       });
+      k._birth = p;   // stash birth params for the PDF header
       render(k);
     } catch (err) {
       result.innerHTML = `<div class="kj-loading">could not cast chart: ${err.message}</div>`;
     }
+  }
+
+  function reportHeaderHtml(k) {
+    const b = k._birth || {};
+    const name = getSavedName() || "Vedic Astro Chart";
+    return `
+      <div class="kj-report-head">
+        <div class="kj-rh-title">${name}</div>
+        <div class="kj-rh-meta">
+          <span>${b.date || ""} ${b.time || ""}</span>
+          <span>Lat ${k.location?.lat ?? b.lat}, Long ${k.location?.lon ?? b.lon}</span>
+          <span>${k.ayanamsa || ""} ayanamsa · ${k.node || ""} node</span>
+        </div>
+      </div>`;
+  }
+
+  function summaryHtml(k) {
+    if (!k.summary) return "";
+    const s = k.summary;
+    const fmtDate = (iso) => {
+      const [y, m, d] = iso.split("-");
+      const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][+m - 1];
+      return `${d}-${mon}-${y.slice(2)}`;
+    };
+    const rows = s.rows.map((r) => `
+      <tr>
+        <td>${i18n.tr(r.name)}${r.retrograde ? " (R)" : ""}</td>
+        <td>${i18n.tr(r.rashi_name)}</td>
+        <td class="kj-num">${r.house}</td>
+        <td class="kj-num">${r.deg_dms}</td>
+        <td>${i18n.tr(r.nakshatra)}-${r.pada}, ${i18n.tr(r.nakshatra_lord)}</td>
+      </tr>`).join("");
+    const headLords = s.dashaMatrix.map((m) => `<th>${DASHA_LABEL[m.lord] || m.lord}</th>`).join("");
+    const matrixRows = s.dashaMatrix.map((maha) => {
+      const cells = maha.antar.map((a) => `<td class="kj-num">${fmtDate(a.start)}</td>`).join("");
+      return `<tr><th>${DASHA_LABEL[maha.lord] || maha.lord}</th>${cells}</tr>`;
+    }).join("");
+    return `
+      <div class="kj-report">
+        ${reportHeaderHtml(k)}
+        <div class="kj-report-hero">
+          <div><span class="kj-rh-label">Tithi</span><b>${i18n.tr(s.tithi)}</b></div>
+          <div><span class="kj-rh-label">Karana</span><b>${i18n.tr(s.karana)}</b></div>
+          <div><span class="kj-rh-label">Yoga</span><b>${i18n.tr(s.yoga)}</b></div>
+        </div>
+        <table class="kj-report-tbl">
+          <thead><tr><th>Planet</th><th>Zodiac</th><th>House</th><th>Degree</th><th>Nakshatra</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="kj-report-dasha">
+          <div class="kj-card-t">Vimsottari Maha Dasas</div>
+          <div class="kj-dasha-scroll">
+            <table class="kj-dasha-matrix">
+              <thead><tr><th></th>${headLords}</tr></thead>
+              <tbody>${matrixRows}</tbody>
+            </table>
+          </div>
+        </div>
+        <div class="kj-report-foot">${k.ayanamsa} ayanamsa · ${s.ayanamsa_dms} · computed report, not a substitute for a qualified astrologer.</div>
+      </div>`;
   }
 
   function render(k) {
@@ -132,6 +201,10 @@ export function createKundali(container) {
     const bp = k.birth_panchang;
     const cur = k.current_dasha;
     result.innerHTML = `
+      <div class="kj-toolbar">
+        <label class="kj-name-lbl">Name<input type="text" id="kj-name" class="kj-name" placeholder="optional" value="${getSavedName().replace(/"/g, "&quot;")}"></label>
+        <button class="kj-pdf-btn" type="button" title="Save this summary as PDF">📄 Export PDF</button>
+      </div>
       <div class="kj-charts">
         <div>${svgChart("Rasi", k.rasi_chart, k.lagna.rashi, lookup)}</div>
         <div>${svgChart("Navamsa", k.navamsa_chart, k.lagna.navamsa_rashi, lookup)}</div>
@@ -154,8 +227,19 @@ export function createKundali(container) {
           <table class="kj-dasha">${k.dashas.map((d) => `<tr class="${d.lord === (cur.maha || "") ? "cur" : ""}"><td>${d.lord}</td><td>${d.start}</td><td>${d.end}</td></tr>`).join("")}</table>
         </details>
       </div>
+      ${summaryHtml(k)}
       ${interpHtml(k.interpretation)}
       <div class="kj-foot">${k.ayanamsa} ayanamsa · ${k.node} node · computed, not a substitute for a qualified astrologer's reading. Historical births use the location's historically-correct timezone offset.</div>`;
+
+    const pdfBtn = result.querySelector(".kj-pdf-btn");
+    if (pdfBtn) pdfBtn.addEventListener("click", () => {
+      document.body.classList.add("kj-printing-report");
+      setTimeout(() => { window.print(); document.body.classList.remove("kj-printing-report"); }, 50);
+    });
+    const nameInput = result.querySelector("#kj-name");
+    if (nameInput) nameInput.addEventListener("change", () => {
+      try { localStorage.setItem(NAME_KEY, nameInput.value.trim()); } catch { /* ignore */ }
+    });
   }
 
   return { cast, prompt, getSaved };

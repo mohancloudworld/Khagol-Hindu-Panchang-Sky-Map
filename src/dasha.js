@@ -2,8 +2,8 @@
 import { ymdOfInstant, isoYMD } from "./tz.js";
 
 const LORDS = [["Ketu", 7], ["Venus", 20], ["Sun", 6], ["Moon", 10], ["Mars", 7], ["Rahu", 18], ["Jupiter", 16], ["Saturn", 19], ["Mercury", 17]];
-const NAMES = LORDS.map((x) => x[0]);
-const YEARS = Object.fromEntries(LORDS);
+export const NAMES = LORDS.map((x) => x[0]);
+export const YEARS = Object.fromEntries(LORDS);
 const YEAR_DAYS = 365.25, NAK_ARC = 360 / 27;
 const addYears = (dt, y) => new Date(dt.getTime() + y * YEAR_DAYS * 86400000);
 

@@ -3,6 +3,19 @@
 All notable changes to Khagol are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Kundali summary report card matching the classic Vedic Astro Chart layout: birth details,
+  tithi/karana/yoga, a full planet table (zodiac, house, DMS degree, nakshatra-pada-lord),
+  and the complete 9×9 Vimshottari Maha/Antar Dasha matrix.
+- "Export PDF" button in the Kundali tab: opens the browser print dialog pre-formatted to
+  save only the summary report as PDF. Includes an optional Name field for the report header.
+
+### Changed
+- `computeKundali` now returns a `summary` object with all report-ready data, plus DMS
+  degree formatting and nakshatra lords for lagna and every graha.
+
 ## [1.0.0] — 2026-06-20
 
 First public release.
