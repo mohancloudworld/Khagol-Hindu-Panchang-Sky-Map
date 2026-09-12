@@ -1,0 +1,16 @@
+import { readFileSync } from "node:fs";
+import { vimshottari } from "../src/dasha.js";
+const ref = readFileSync(new URL("./dasha_ref.txt", import.meta.url), "utf8").trim().split("\n");
+const r = vimshottari(196.7117, new Date("2000-01-01T06:30:00Z"), new Date("2026-06-15T00:00:00Z"), "Asia/Kolkata");
+let ok = true; const exp = (c, m) => { if (!c) { ok = false; console.log("FAIL " + m); } };
+const janma = ref.find((l) => l.startsWith("JANMA|")).split("|");
+exp(r.janma_lord === janma[1] && String(r.balance_years) === janma[2], `janma ${r.janma_lord}/${r.balance_years} vs ${janma[1]}/${janma[2]}`);
+const cur = ref.find((l) => l.startsWith("CUR|")).split("|");
+exp(r.current_dasha.maha === cur[1] && r.current_dasha.antar === cur[2] && r.current_dasha.maha_ends === cur[3], `current ${r.current_dasha.maha}/${r.current_dasha.antar}/${r.current_dasha.maha_ends} vs ${cur.slice(1).join("/")}`);
+const mahas = ref.filter((l) => l.startsWith("M|")).map((l) => l.split("|"));
+exp(r.dashas.length === mahas.length, `maha count ${r.dashas.length} vs ${mahas.length}`);
+r.dashas.forEach((d, i) => exp(d.lord === mahas[i][1] && d.start === mahas[i][2] && d.end === mahas[i][3] && d.antar.length === +mahas[i][4], `maha ${i} ${d.lord} ${d.start} ${d.end} #${d.antar.length} vs ${mahas[i].slice(1).join(" ")}`));
+const a0 = ref.find((l) => l.startsWith("A0|")).split("|").slice(1).map((s) => s.split(","));
+r.dashas[0].antar.forEach((a, i) => exp(a.lord === a0[i][0] && a.start === a0[i][1] && a.end === a0[i][2], `antar0 ${i} ${a.lord} ${a.start} ${a.end} vs ${a0[i].join(" ")}`));
+console.log(ok ? "DASHA PASS — full timeline + current match the app." : "DASHA FAIL");
+process.exit(ok ? 0 : 1);

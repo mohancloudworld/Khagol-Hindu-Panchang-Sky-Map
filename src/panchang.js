@@ -1,4 +1,4 @@
-// The five angas.
+// The five angas — ported 1:1 from app/panchang/elements.py.
 // Each anga's end-instant is found by bisecting its sidereal angle to the next arc boundary.
 import * as swe from "./sweph.js";
 import { TITHI, NAKSHATRA, YOGA, VARA, VARA_ENGLISH, karanaName } from "./names.js";

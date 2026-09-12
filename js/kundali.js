@@ -131,6 +131,14 @@ export function createKundali(container) {
     for (const g of k.grahas) lookup[g.label] = { name: g.name, retro: g.retrograde };
     const bp = k.birth_panchang;
     const cur = k.current_dasha;
+
+    // Section B.5: remember the janma nakshatra/rashi so the Panchang "Today's guidance"
+    // card can show personal tara-bala/chandra-bala without re-casting.
+    const moonGraha = k.grahas.find((g) => g.id === "moon");
+    if (moonGraha) {
+      const nakIndex = Math.floor(moonGraha.lon / (360 / 27));
+      localStorage.setItem("kundali.janma", JSON.stringify({ nakshatra: nakIndex, rashi: moonGraha.rashi }));
+    }
     result.innerHTML = `
       <div class="kj-charts">
         <div>${svgChart("Rasi", k.rasi_chart, k.lagna.rashi, lookup)}</div>

@@ -1,6 +1,7 @@
 /* swe_wasm.c — thin wrapper exposing just the Swiss Ephemeris calls the extension needs,
  * forced to Moshier mode (SEFLG_MOSEPH → no ephemeris data files, fully self-contained).
- * Whole-sign houses ('W') for the lagna. Compiled to WASM by build-wasm.sh.
+ * Mirrors app/panchang/core.py exactly: FLG_MOSEPH | FLG_SIDEREAL | FLG_SPEED, whole-sign
+ * houses ('W') for the lagna. Compiled to WASM by build-wasm.sh.
  */
 #include <string.h>
 #include "swephexp.h"
@@ -71,11 +72,16 @@ double w_ecl_lon(double jd, int ipl) {
   double l = xx[0]; while (l < 0) l += 360.0; return l - 360.0 * (int)(l / 360.0);
 }
 
-/* Apparent magnitude / illuminated fraction via swe_pheno_ut. which 0=mag 1=phase(0..1). */
+/* Apparent magnitude / illuminated fraction / disc size via swe_pheno_ut.
+ * which: 0=apparent magnitude (attr[4]), 1=illuminated fraction (attr[1]),
+ *        2=apparent diameter of the disc (attr[3]) — the eclipse code turns the Moon's into
+ *          a semidiameter, which is what converts shadow geometry into a covered percentage. */
 double w_pheno(double jd, int ipl, int which) {
   double attr[20]; char serr[256];
   if (swe_pheno_ut(jd, ipl, SEFLG_MOSEPH, attr, serr) < 0) return (which == 0) ? 99.0 : -1.0;
-  return (which == 0) ? attr[4] : attr[1];   /* attr[4]=app. magnitude, attr[1]=illum. fraction */
+  if (which == 1) return attr[1];
+  if (which == 2) return attr[3];
+  return attr[4];
 }
 
 /* Next rise/set (JD UT) at/after jd of body ipl for geographic (lon,lat,alt_m). rise=1 → rise.
@@ -88,4 +94,94 @@ double w_rise(double jd, double lon, double lat, double alt, int rise, int ipl) 
   if (swe_rise_trans(jd, ipl, NULL, SEFLG_MOSEPH, rsmi, geopos, 1013.25, 15.0, tret, serr) < 0)
     return -1.0;
   return tret[0];
+}
+
+/* ---------------------------------------------------------------------------
+ * Eclipses (grahana).
+ *
+ * These Swiss Ephemeris calls return arrays (contact times, local circumstances),
+ * which cwrap's double-only surface cannot carry. The wrapper therefore keeps one
+ * static result pair — filled by a w_*_ecl_* call, read back with w_ecl_tret() /
+ * w_ecl_attr(). Safe because JS is single-threaded and every caller does
+ * "compute, then read" before the next compute (same contract as the global
+ * sidereal mode set by w_set_sid_mode).
+ *
+ * Index maps (from swecl.c):
+ *   lunar when   tret: 0 max, 2/3 partial begin/end, 4/5 totality begin/end,
+ *                      6/7 penumbral begin/end
+ *   solar when   tret: 0 max, 1..4 first..fourth contact, 5 sunrise, 6 sunset
+ *   lunar attr:  0 umbral mag, 1 penumbral mag, 4 azimuth, 5 true alt, 6 app alt,
+ *                7 distance from opposition, 9/10 saros series/member
+ *   solar attr:  0 fraction of diameter covered, 1 lunar/solar diameter ratio,
+ *                2 obscuration (fraction of disc), 3 core shadow km, 4 azimuth,
+ *                5 true alt, 6 app alt, 7 elongation, 8 NASA magnitude,
+ *                9/10 saros series/member
+ * Return value is the SE_ECL_* retflag (0 = no eclipse, -1 = error). */
+static double ecl_tret[10];
+static double ecl_attr[20];
+
+double w_ecl_tret(int i) { return (i < 0 || i > 9)  ? 0.0 : ecl_tret[i]; }
+double w_ecl_attr(int i) { return (i < 0 || i > 19) ? 0.0 : ecl_attr[i]; }
+
+static void ecl_clear(void) {
+  int i;
+  for (i = 0; i < 10; i++) ecl_tret[i] = 0.0;
+  for (i = 0; i < 20; i++) ecl_attr[i] = 0.0;
+}
+
+/* Attributes of a lunar eclipse in progress at jd. use_geopos=0 → geocentric shadow
+ * magnitudes regardless of the Moon's altitude (what the sky view needs to shade the
+ * disc); use_geopos=1 → adds azimuth/altitude and returns 0 when the Moon is below
+ * the horizon, i.e. "is this eclipse actually up for this observer". */
+int w_lun_ecl_how(double jd, double lon, double lat, double alt, int use_geopos) {
+  double geopos[3] = { lon, lat, alt }; char serr[256];
+  ecl_clear();
+  return swe_lun_eclipse_how(jd, SEFLG_MOSEPH, use_geopos ? geopos : NULL, ecl_attr, serr);
+}
+
+/* Next (backward=0) or previous (backward=1) lunar eclipse anywhere on Earth, from jd. */
+int w_lun_ecl_when(double jd, int backward) {
+  char serr[256];
+  ecl_clear();
+  return swe_lun_eclipse_when(jd, SEFLG_MOSEPH, 0, ecl_tret, backward, serr);
+}
+
+/* Next/previous lunar eclipse VISIBLE from (lon,lat,alt) — fills both tret and attr.
+ * tret[5]/tret[6] carry moonrise/moonset when the eclipse straddles the horizon. */
+int w_lun_ecl_when_loc(double jd, double lon, double lat, double alt, int backward) {
+  double geopos[3] = { lon, lat, alt }; char serr[256];
+  ecl_clear();
+  return swe_lun_eclipse_when_loc(jd, SEFLG_MOSEPH, geopos, ecl_tret, ecl_attr, backward, serr);
+}
+
+/* Attributes of a solar eclipse at jd as seen from (lon,lat,alt) — 0 if none there. */
+int w_sol_ecl_how(double jd, double lon, double lat, double alt) {
+  double geopos[3] = { lon, lat, alt }; char serr[256];
+  ecl_clear();
+  return swe_sol_eclipse_how(jd, SEFLG_MOSEPH, geopos, ecl_attr, serr);
+}
+
+/* Next/previous solar eclipse visible from (lon,lat,alt) — local contact times. */
+int w_sol_ecl_when_loc(double jd, double lon, double lat, double alt, int backward) {
+  double geopos[3] = { lon, lat, alt }; char serr[256];
+  ecl_clear();
+  return swe_sol_eclipse_when_loc(jd, SEFLG_MOSEPH, geopos, ecl_tret, ecl_attr, backward, serr);
+}
+
+/* Next/previous solar eclipse anywhere on Earth (global contact times, tret[0]=max). */
+int w_sol_ecl_when_glob(double jd, int backward) {
+  char serr[256];
+  ecl_clear();
+  return swe_sol_eclipse_when_glob(jd, SEFLG_MOSEPH, 0, ecl_tret, backward, serr);
+}
+
+/* Where a solar eclipse is central/maximal at jd: ecl_tret[0]=lon, [1]=lat of the
+ * shadow axis (attr as per w_sol_ecl_how). Lets the app say "totality is over X". */
+int w_sol_ecl_where(double jd) {
+  double geopos[2]; char serr[256];
+  int32 r;
+  ecl_clear();
+  r = swe_sol_eclipse_where(jd, SEFLG_MOSEPH, geopos, ecl_attr, serr);
+  if (r >= 0) { ecl_tret[0] = geopos[0]; ecl_tret[1] = geopos[1]; }
+  return r;
 }

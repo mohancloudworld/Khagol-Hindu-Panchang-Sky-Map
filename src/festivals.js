@@ -1,4 +1,4 @@
-// Festivals by kaal-based determination.
+// Festivals by kaal-based determination — ported from app/panchang/festivals.py.
 // Find the absolute time-band of a festival's target tithi inside the right lunar month,
 // then pick the civil day by the rule's kaal (udaya / interval / chandrodaya).
 import * as swe from "./sweph.js";

@@ -1,4 +1,4 @@
-// Sanskrit name tables.
+// Sanskrit name tables — copied verbatim from the app (app/panchang/names.py).
 // IAST-lite spellings are the contract; do NOT "correct" them.
 
 export const TITHI = [
@@ -51,7 +51,7 @@ export const SAMVATSARA = [
   "Dundubhi", "Rudhirodgari", "Raktakshi", "Krodhana", "Akshaya",
 ];
 
-// Karana name for index k in 0..59.
+// Karana name for index k in 0..59 (app/panchang/names.py karana_name).
 export function karanaName(k) {
   if (k === 0) return "Kimstughna";
   if (k >= 1 && k <= 56) return KARANA_MOVABLE[(k - 1) % 7];

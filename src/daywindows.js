@@ -1,4 +1,5 @@
-// Rahu Kalam / Yamagandam / Gulika, hora, choghadiya, ritual kaals. Pure time arithmetic on Date instants (UTC); the UI
+// Rahu Kalam / Yamagandam / Gulika, hora, choghadiya, ritual kaals — ported verbatim from
+// app/panchang/kalam.py + muhurta.py. Pure time arithmetic on Date instants (UTC); the UI
 // localizes. start/end are Date objects.
 const ms = (d) => d.getTime();
 const at = (base, deltaMs) => new Date(ms(base) + deltaMs);

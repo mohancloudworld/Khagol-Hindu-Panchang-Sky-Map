@@ -9,9 +9,11 @@ import * as THREE from "../vendor/three.module.js";
 import * as astro from "./astro.js";
 import * as overlays from "./overlays.js";
 import * as i18n from "./i18n.js";
+import { setupPinch } from "./ui.js";
 
 const RADIUS = 100;        // star sphere radius
 const BODY_R = 99;         // sun/moon/planet sprite distance
+const SUN_RADIUS_KM = 696000, AU_KM = 149597870.7;   // eclipsed-Sun semidiameter
 const FOV_REF = 70;        // reference FOV (used to scale the star-pick radius with zoom)
 // Name labels are sized to a FIXED on-screen pixel height each frame (like the 2D view's 11px font),
 // so 3D names look the same size/crispness as 2D regardless of FOV or window size. The texture draws
@@ -48,7 +50,58 @@ function discTexture(inner, outer, size = 256) {
 
 // Moon disc with a phase terminator from illuminated fraction (orientation simplified --
 // pitfall #12). k in [0,1]; waxing>0 lights the right limb.
-function moonTexture(k, waxing, size = 256) {
+// Solar eclipse: the Sun's disc with the Moon's silhouette across it, plus the corona once
+// the photosphere is gone. Geometry is derived from the magnitude the app displays (fraction
+// of the solar DIAMETER covered), so picture and number cannot drift apart:
+//   sep = sun_sd + moon_sd - 2 * sun_sd * magnitude
+function eclipsedSunTexture(ec, sunSdDeg, pa, size = 256) {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d");
+  const r = size / 2 - 2, cx = size / 2, cy = size / 2;
+  const moonSd = sunSdDeg * ec.diameter_ratio;
+  const sep = Math.max(0, sunSdDeg + moonSd - 2 * sunSdDeg * ec.magnitude);
+  if (ec.obscuration > 0.999) {
+    const cg = g.createRadialGradient(cx, cy, r * 0.98, cx, cy, r);
+    cg.addColorStop(0, "rgba(255,248,220,0.85)");
+    cg.addColorStop(1, "rgba(255,248,220,0)");
+    g.fillStyle = cg;
+    g.beginPath(); g.arc(cx, cy, r, 0, 2 * Math.PI); g.fill();
+  }
+  const grad = g.createRadialGradient(size * 0.38, size * 0.38, r * 0.1, cx, cy, r);
+  grad.addColorStop(0, "#fffbe8"); grad.addColorStop(1, "#ffd24a");
+  g.fillStyle = grad;
+  g.beginPath(); g.arc(cx, cy, r, 0, 2 * Math.PI); g.fill();
+  paintShadow(g, cx, cy, r, sunSdDeg, pa, sep, [{ radiusDeg: moonSd, fill: "#0a0a12" }]);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+// Earth's shadow (or the Moon's silhouette) painted onto a body's disc texture. `pa` is the
+// screen position angle of the shadow centre, clockwise from up -- the camera has no roll, so
+// a sprite's up IS screen up and the angle can be baked in with the texture instead of being
+// recomputed every frame. `sd` is the body's true semidiameter; radii and the offset are given
+// in the same units, so scaling everything by (r / sd) keeps the shadow's real proportions on
+// an intentionally oversized sprite.
+function paintShadow(g, cx, cy, r, sd, pa, offDeg, discs) {
+  const k = r / sd;
+  const ox = cx + Math.sin(pa) * offDeg * k, oy = cy - Math.cos(pa) * offDeg * k;
+  g.save();
+  g.beginPath(); g.arc(cx, cy, r, 0, 2 * Math.PI); g.clip();     // shadow only on the disc
+  for (const d of discs) {
+    if (d.gradient) {
+      const grd = g.createRadialGradient(ox, oy, 0, ox, oy, d.radiusDeg * k);
+      for (const [stop, col] of d.gradient) grd.addColorStop(stop, col);
+      g.fillStyle = grd;
+    } else g.fillStyle = d.fill;
+    g.beginPath(); g.arc(ox, oy, d.radiusDeg * k, 0, 2 * Math.PI); g.fill();
+  }
+  g.restore();
+}
+
+function moonTexture(k, waxing, size = 256, ecl = null, pa = 0) {
   const c = document.createElement("canvas");
   c.width = c.height = size;
   const g = c.getContext("2d");
@@ -66,6 +119,15 @@ function moonTexture(k, waxing, size = 256) {
     g.ellipse(cx, cy, Math.abs(x), r, 0, -Math.PI / 2, Math.PI / 2, k < 0.5);
   }
   g.fill();
+  // Lunar eclipse: Earth's shadow over the (by definition full) disc. Umbra in the copper of
+  // refracted sunlight rather than black -- see src/eclipse.js for where the radii come from.
+  if (ecl) {
+    paintShadow(g, cx, cy, r, ecl.moon_sd_deg, pa, ecl.separation_deg, [
+      { radiusDeg: ecl.penumbra_radius_deg, fill: "rgba(60,44,40,0.45)" },
+      { radiusDeg: ecl.umbra_radius_deg, gradient: [
+        [0, "rgba(74,26,14,0.97)"], [0.75, "rgba(96,38,20,0.95)"], [1, "rgba(120,58,34,0.9)"]] },
+    ]);
+  }
   // Rim outline so the (mostly unlit) disc is still visible against the black sky -- the 2D moon
   // does the same; without it a crescent/new Moon vanishes.
   g.strokeStyle = "#8a8a96"; g.lineWidth = Math.max(1, size * 0.012);
@@ -221,6 +283,7 @@ export function createView3D(container) {
   const heldKeys = new Set();
   let keyLast = 0;
   function applyKeyOrbit() {
+    if (pointingLocked) { keyLast = 0; return; }
     if (!heldKeys.size) { keyLast = 0; return; }
     const now = performance.now();
     const dt = keyLast ? Math.min(0.05, (now - keyLast) / 1000) : 1 / 60;
@@ -295,6 +358,19 @@ export function createView3D(container) {
   let markerHidLabel3d = null;          // persistent star label hidden while its orange marker shows
   let selected = null;
   let lastLst = null, lastLat = 0, lastJd = 0, lastSimMs = 0;
+
+  // Screen position angle (radians, clockwise from up) of a point at raH/dec as seen from the
+  // body `b`. Sprites are screen-aligned and the camera never rolls, so screen up is the local
+  // vertical: the angle follows from the two positions' alt/az. Near the frame edge a wide FOV
+  // skews this by a few degrees -- immaterial for a shadow drawn on a disc.
+  function shadowPA(b, raH, dec) {
+    if (lastLst == null) return 0;
+    const t = astro.eqToHorizontal(raH * 15, dec, lastLst, lastLat);
+    const m = astro.eqToHorizontal(b.ra_hours * 15, b.dec_deg, lastLst, lastLat);
+    const dAlt = t.alt - m.alt;
+    const dAz = (((t.az - m.az + 540) % 360) - 180) * Math.cos(m.alt * Math.PI / 180);
+    return Math.atan2(dAz, dAlt);
+  }
 
   // Extrapolate a body's of-date ra/dec from the last fetch by its angular rate (Phase: true
   // per-frame model) -> smooth orbital drift every frame; the matrix adds the diurnal spin.
@@ -584,8 +660,22 @@ export function createView3D(container) {
         bodyGroup.add(sprite);
         bodySprites.set(b.id, sprite);
       }
-      if (b.id === "sun") sprite.material.map = sunTex;
-      else if (b.id === "moon") sprite.material.map = moonTexture((b.phase_percent ?? 50) / 100, true);
+      if (b.id === "sun") {
+        // sunTex is the shared, permanent texture; only a baked eclipse texture is ours to
+        // free -- including when the eclipse ends and we hand the sprite back to sunTex.
+        if (sprite.material.map && sprite.material.map !== sunTex) sprite.material.map.dispose();
+        if (b.eclipse) {
+          const sd = Math.asin(SUN_RADIUS_KM / (b.distance_au * AU_KM)) * 180 / Math.PI;
+          const moon = skyData.bodies.find((x) => x.id === "moon");
+          sprite.material.map = eclipsedSunTexture(b.eclipse, sd, moon ? shadowPA(b, moon.ra_hours, moon.dec_deg) : 0);
+        } else sprite.material.map = sunTex;
+      } else if (b.id === "moon") {
+        if (sprite.material.map) sprite.material.map.dispose();   // re-baked every update
+        sprite.material.map = moonTexture(
+          (b.phase_percent ?? 50) / 100, b.phase_waxing !== false, 256,
+          b.eclipse || null,
+          b.eclipse ? shadowPA(b, b.eclipse.shadow_ra_hours, b.eclipse.shadow_dec_deg) : 0);
+      }
       else if (b.id === "saturn") { if (!sprite.material.map) sprite.material.map = saturnTex; }
       else if (!sprite.material.map) sprite.material.map = discTexture("#ffffff", PLANET_COLOR[b.id] || "#ccccff");
       sprite.material.needsUpdate = true;
@@ -692,7 +782,7 @@ export function createView3D(container) {
       kind: "body", name: b.name,
       type: b.id === "sun" ? "The Sun" : b.id === "moon" ? "The Moon" : "Planet",
       mag: b.mag, raDeg: b.ra_hours * 15, decDeg: b.dec_deg, alt: b.alt, altTrue: b.alt_true,
-      az: b.az, distanceAu: b.distance_au, phasePercent: b.phase_percent, _bodyId: b.id,
+      az: b.az, distanceAu: b.distance_au, phasePercent: b.phase_percent, eclipse: b.eclipse, _bodyId: b.id,
     };
   }
 
@@ -702,7 +792,7 @@ export function createView3D(container) {
       -((clientY - rect.top) / rect.height) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
     // Prefer intentional targets (planets, Messier markers) over the dense star field.
-    const sprites = [...bodySprites.values(), ...messierSprites.filter((m) => m.visible)];
+    const sprites = [...[...bodySprites.values()].filter((s) => s.visible), ...messierSprites.filter((m) => m.visible)];
     const sh = raycaster.intersectObjects(sprites, false);
     if (sh.length) {
       const o = sh[0].object;
@@ -712,7 +802,7 @@ export function createView3D(container) {
       return { kind: "messier", name: `M${m.id}${m.name ? " — " + m.name : ""}`, type: m.type,
         mag: m.mag, raDeg: m.raDeg, decDeg: m.decDeg, alt, az, _ra: m.raDeg, _dec: m.decDeg };
     }
-    if (starsRaw) {
+    if (starsRaw && starsOn) {   // hidden star field must not swallow taps on "empty" sky
       // Tighten the pick radius as you zoom in so close pairs (e.g. Algorab vs HIP 61174) can be told
       // apart, then take the dot ANGULARLY nearest the click (min distanceToRay) -- not intersectObject's
       // default order (nearest to camera), which for a sphere of stars at equal range is arbitrary.
@@ -752,11 +842,11 @@ export function createView3D(container) {
 
   function findByName(name) {
     const lc = name.toLowerCase();
-    if (lastSky) {
+    if (lastSky && !deepOn) {                     // bodies are hidden (unfindable) in deep time
       const b = lastSky.bodies.find((x) => x.name.toLowerCase() === lc);
       if (b) return bodyDescriptor(b);
     }
-    if (starsRaw) {
+    if (starsRaw && starsOn) {                    // hidden star field is unfindable too
       const idx = starsRaw.findIndex((x) => x[4] && x[4].toLowerCase() === lc);
       if (idx >= 0) {
         const s = starsRaw[idx];
@@ -787,19 +877,42 @@ export function createView3D(container) {
     return astro.starGroupMatrix(lastLst, lastLat, jdP, deepOn);
   }
 
-  // Aim the camera at the current selection (search "center" behaviour, Section 8 item 4).
-  function lookAtSelected() {
-    if (!selected) return;
-    let v = null;
+  // Current render-frame unit vector of the selection (null if none / not resolvable).
+  function _selVec() {
+    if (!selected) return null;
     if (selected._bodyId && lastSky) {
       const b = lastSky.bodies.find((x) => x.id === selected._bodyId);
-      if (b) v = astro.matVec(astro.horizontalMatrix(lastLst, lastLat), bodyVec(b));
+      if (b) return astro.matVec(astro.horizontalMatrix(lastLst, lastLat), bodyVec(b));
     } else if (selected._ra != null && lastLst != null) {
-      v = astro.matVec(_starM(), _selStarEqVec(selected));
+      return astro.matVec(_starM(), _selStarEqVec(selected));
     }
+    return null;
+  }
+
+  // Aim the camera at the current selection (search "center" behaviour, Section 8 item 4).
+  function lookAtSelected() {
+    const v = _selVec();
     if (!v) return null;
     tYaw = Math.atan2(v[0], -v[2]); tPitch = Math.asin(Math.max(-1, Math.min(1, v[1])));
     return tPitch * 180 / Math.PI;     // altitude of the target (deg)
+  }
+
+  // Where the selection sits relative to the CURRENT look direction — for point-at-sky guidance
+  // ("tilt this way to bring Surya on screen"). dAz/dAlt in radians (dAz wrapped to ±π);
+  // onScreen uses ~90% of the frustum so the hint clears just as the object comes into view.
+  function selectedOffset() {
+    const v = _selVec();
+    if (!v) return null;
+    const azT = Math.atan2(v[0], -v[2]);
+    const altT = Math.asin(Math.max(-1, Math.min(1, v[1])));
+    let dAz = azT - yaw;
+    while (dAz > Math.PI) dAz -= 2 * Math.PI;
+    while (dAz < -Math.PI) dAz += 2 * Math.PI;
+    const dAlt = altT - pitch;
+    const halfV = (fov / 2) * Math.PI / 180;
+    const halfH = Math.atan(Math.tan(halfV) * camera.aspect);
+    const onScreen = Math.abs(dAz) < halfH * 0.9 && Math.abs(dAlt) < halfV * 0.9;
+    return { name: selected.name || "object", dAz, dAlt, onScreen };
   }
 
   // One frame: update star-group matrix, body positions, atmosphere, render.
@@ -887,10 +1000,47 @@ export function createView3D(container) {
 
   // --- input ---------------------------------------------------------------
   let dragging = false, lastX = 0, lastY = 0;
+  let dragId = null;                    // ONLY the first pointer drives pan/trim: a second touch
+                                        // (palm, pinch finger) must not inject its coordinates
+                                        // into the deltas — that caused wild random trim jumps.
+  let pointingLocked = false;           // point mode: sensors own yaw/pitch; touch only zooms
+  let onPointTrim = null;               // point mode: horizontal drag reports a yaw-trim delta
+  let onPointHold = null;               // point mode: finger down/up (align against a static sky)
   const el = renderer.domElement;
-  el.addEventListener("pointerdown", (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; el.setPointerCapture(e.pointerId); });
-  el.addEventListener("pointerup", (e) => { dragging = false; el.releasePointerCapture(e.pointerId); });
+  el.style.touchAction = "none";        // keep two-finger gestures for us, not the browser
+  const pinching = setupPinch(el, (r) => { fov = Math.max(15, Math.min(120, fov / r)); });
+  el.addEventListener("pointerdown", (e) => {
+    if (dragId == null) {
+      dragId = e.pointerId; dragging = true; lastX = e.clientX; lastY = e.clientY;
+      if (pointingLocked && onPointHold) onPointHold(true);
+    }
+    el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener("pointerup", (e) => {
+    if (e.pointerId === dragId) {
+      dragId = null; dragging = false;
+      if (pointingLocked && onPointHold) onPointHold(false);
+    }
+    el.releasePointerCapture(e.pointerId);
+  });
+  el.addEventListener("pointercancel", (e) => {
+    if (e.pointerId === dragId) {
+      dragId = null; dragging = false;
+      if (pointingLocked && onPointHold) onPointHold(false);
+    }
+  });
   el.addEventListener("pointermove", (e) => {
+    if (e.pointerId !== dragId) return;   // other pointers belong to the pinch, not the drag
+    if (pointingLocked) {
+      // Manual alignment: the compass sets the absolute azimuth and can be tens of degrees off
+      // indoors — dragging sideways trims the yaw so the user can true the sky up against a
+      // known reference (the Moon, a landmark). Same hand-feel as the normal drag.
+      if (dragging && !pinching() && onPointTrim) {
+        onPointTrim(-(e.clientX - lastX) * (fov / 70) * 0.005);
+      }
+      lastX = e.clientX; lastY = e.clientY; return;
+    }
+    if (pinching()) { lastX = e.clientX; lastY = e.clientY; return; }
     if (!dragging) return;
     const k = (fov / 70) * 0.005;
     tYaw -= (e.clientX - lastX) * k;
@@ -911,7 +1061,7 @@ export function createView3D(container) {
 
   return {
     setStars, setSky, setOverlayData, setEcliptic, frame, resize, renderer, scene, camera,
-    pickAt, setSelected, findByName, lookAtSelected, relabelBodies, setEpoch, setDeepTime,
+    pickAt, setSelected, findByName, lookAtSelected, selectedOffset, relabelBodies, setEpoch, setDeepTime,
     clearSelection: () => setSelected(null),   // hide the crosshair
     // Where you're looking, in exact alt-az + field of view: azimuth (0°=N, 90°=E, left/right),
     // altitude (degrees above the horizon, up/down), FOV (zoom).
@@ -919,6 +1069,23 @@ export function createView3D(container) {
       const az = ((yaw * 180 / Math.PI) % 360 + 360) % 360;
       const alt = pitch * 180 / Math.PI;
       return `Az ${az.toFixed(1)}° · Alt ${alt >= 0 ? "+" : ""}${alt.toFixed(1)}° · FOV ${fov.toFixed(0)}°`;
+    },
+    // Numeric camera pose for telemetry (deg): actual, target, fov.
+    getPose() {
+      const R = 180 / Math.PI;
+      return { az: yaw * R, alt: pitch * R, tAz: tYaw * R, tAlt: tPitch * R, fov };
+    },
+    // Sensor-driven look direction (point-at-sky): target az/alt in radians. Azimuth is
+    // unwrapped to the nearest turn so the existing lerp never swings the long way around N.
+    setPointingLock(on, onTrim = null, onHold = null) {
+      pointingLocked = !!on; onPointTrim = onTrim; onPointHold = onHold;
+    },
+    setPointing(azRad, altRad) {
+      let y = azRad;
+      while (y - yaw > Math.PI) y -= 2 * Math.PI;
+      while (y - yaw < -Math.PI) y += 2 * Math.PI;
+      tYaw = y;
+      tPitch = Math.max(-89.9 * Math.PI / 180, Math.min(89.9 * Math.PI / 180, altRad));
     },
     // PNG export (Phase 9D.4): render once, then read the buffer synchronously.
     snapshot: () => { renderer.render(scene, camera); return renderer.domElement.toDataURL("image/png"); },

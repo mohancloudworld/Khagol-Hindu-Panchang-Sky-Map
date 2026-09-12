@@ -14,9 +14,16 @@ import { initInfoPanel, showInfo, hideInfo, setSearchNames } from "./infopanel.j
 import { createPanchangTab } from "./panchang.js";
 import { createCalendar } from "./calendar.js";
 import { createKundali } from "./kundali.js";
+import { createMatch } from "./match.js";
 import * as overlays from "./overlays.js";
 import * as sync from "../src/sync.js";
 import * as sev from "../src/savedevents.js";
+import { createPointSky } from "./pointsky.js";
+import * as geomag from "./geomag.js";
+import { dlog, init as dbgInit, save as dbgSave } from "./debuglog.js";
+import { setupMobileChrome } from "./mobileui.js";
+import { buildIcsRange, saveIcs } from "./icsexport.js";
+import * as notify from "./notifyplan.js";
 
 const UJJAIN = { lat: 23.1765, lon: 75.7885, tz: "Asia/Kolkata", label: "Ujjain, India" };
 
@@ -64,12 +71,12 @@ export function bootstrapLocation() {
 let view3d = null, view2d = null, orreryView = null;
 const containers = {};
 let sky = null;
-let lstFetched = 0, simAtFetch = 0, lastRealFetch = 0, lastFrame = 0, fetching = false;
+let lstFetched = 0, simAtFetch = 0, lastRealFetch = 0, lastFrame = 0, lastWall = 0, lastOffsetSeen = null, fetching = false;
 let fps = 0, fpsAccum = 0, fpsFrames = 0;
 let ayanamsaDeg = 0;
 let orreryAt = null, orreryRealFetch = 0, orreryFetching = false, orreryTrailMonth = null, orreryStarted = false;
 let orreryTrailFetch = 0;
-let orreryLog = false, deepTimeOn = false;
+let orreryLog = false, deepTimeOn = false, pointOn = false;
 let deepTimePanel = null, deepTimeSlider = null, deepTimeYearEl = null, deepTimeSpeedEl = null;
 // Deep-time playback: stepped speeds (yr/s); each forward/reverse click bumps to the next.
 const DT_SPEEDS = [250, 1000, 5000, 25000];
@@ -77,71 +84,10 @@ let dtDir = 0, dtIdx = 0, dtRaf = 0, dtLast = 0, dtYear = 2000;  // dtYear: cont
 let atEphemerisLimit = false;
 let panchangTab = null, calendarView = null;
 let panchangFrozen = false, panchangFetching = false, panchangAtSim = null, panchangTick = 0;
-let kundaliView = null, controlBar = null;
+let kundaliView = null, controlBar = null, matchView = null, overlayBar = null;
 
 function viewObj(v) {
   return v === "2d" ? view2d : v === "orrery" ? orreryView : view3d;
-}
-
-// Per-view caption naming the key on-screen elements (helps newcomers read the view).
-// Stellarium-style time-lapse keys, spelled out (J/L step through the rate presets; K resets
-// to live real-time). Grid (G) is sky-only; time-lapse applies to all three viewer modes.
-const TIME_KEYS = "time-lapse — J ◀ slower / reverse · L ▶ faster · K = back to live now";
-
-const HINTS = {
-  "3d": `3D sky — drag to look, wheel to zoom. The dark dome below is the ground; the horizon (N/E/S/W) is where it meets the sky. ${TIME_KEYS} · G = grid · "Deep time" drifts the stars / changes the pole star over millennia`,
-  "2d": `2D dome — looking straight up. Centre = zenith, the circle = horizon, N/E/S/W around the rim. Drag to rotate · wheel to zoom. ${TIME_KEYS} · G = grid · "Deep time" warps the constellations over millennia`,
-  "orrery": `Solar System — planets orbit the Sun (centre). Arrow keys: ←→ swing, ↑↓ tilt (or drag) · wheel to zoom · double-click a body to follow. Toggle "Rashi band" for the geocentric zodiac (Earth→body lines + Spica axis). ${TIME_KEYS} (up to 10 yr/s)`,
-  "panchang": "Panchang — today's Hindu calendar for your location. Use Today / Month above. Frozen during time-lapse.",
-  "kundali": "Kundali — South-Indian birth chart. Enter birth date / time / place and cast. Signs are fixed; occupants move. Data stays on your device.",
-};
-function setHint(v) {
-  const el = document.querySelector(".hint");
-  if (el) el.textContent = HINTS[v] || "";
-}
-
-// The three top bars stack natively in the #top-bars flex column (CSS), so they can't overlap
-// at any width. This only measures the column's bottom edge -> --panel-top, so the scrollable
-// panel views (Panchang/Kundali) start below whatever the bars currently occupy. Run after layout.
-function layoutBars() {
-  const bars = document.getElementById("top-bars");
-  if (!bars) return;
-  // Collapsed -> panel views reclaim the space (only the small tab remains at top).
-  if (document.body.classList.contains("bars-hidden")) {
-    document.documentElement.style.setProperty("--panel-top", "24px");
-    return;
-  }
-  document.documentElement.style.setProperty("--panel-top", `${Math.ceil(bars.getBoundingClientRect().bottom + 8)}px`);
-}
-
-// Top-middle tab: click toggles the menus; hovering the tab/bars peeks them while hidden.
-function setupBarsHandle() {
-  const handle = document.getElementById("bars-handle");
-  const bars = document.getElementById("top-bars");
-  if (!handle || !bars) return;
-  const sync = () => {
-    const hidden = document.body.classList.contains("bars-hidden");
-    handle.textContent = hidden ? "▼" : "▲";
-    handle.title = hidden ? "Show menus" : "Hide menus";
-    requestAnimationFrame(layoutBars);
-  };
-  handle.addEventListener("click", () => {
-    document.body.classList.toggle("bars-hidden");
-    document.body.classList.remove("bars-peek");
-    sync();
-  });
-  // Peek while hovering (a short close delay bridges the gap between tab and bars).
-  let peekT;
-  const peek = (on) => {
-    clearTimeout(peekT);
-    if (on) document.body.classList.add("bars-peek");
-    else peekT = setTimeout(() => document.body.classList.remove("bars-peek"), 160);
-  };
-  handle.addEventListener("mouseenter", () => peek(true));
-  handle.addEventListener("mouseleave", () => peek(false));
-  bars.addEventListener("mouseenter", () => peek(true));
-  bars.addEventListener("mouseleave", () => peek(false));
-  sync();
 }
 
 const fmtYear = (y) => { y = Math.round(y); return y >= 0 ? `${y} CE` : `${-y} BCE`; };
@@ -245,10 +191,127 @@ function setDeepTime(on) {
   if (dv && dv.setDeepTime) dv.setDeepTime(on);
   showDeepPanel(on && deepCapable());
   if (on && dv && dv.setEpoch && deepTimeSlider) dv.setEpoch(+deepTimeSlider.value);
+  // One time dimension at a time: deep time pauses the sim clock and REPLACES the ◀⏸▶ pill
+  // with the epoch controls; leaving auto-resumes live now.
+  if (on) setRate(0);
+  else { state.resetToNow(); setRate(1); if (controlBar && controlBar.setNow) controlBar.setNow(); }
+  if (typeof syncTlVisibility === "function") syncTlVisibility();
+}
+
+// Phone alarm (Android): set a one-time Clock-app alarm at TOMORROW's sunrise / brahma-muhurta
+// start for the current location, computed by the app's own engine. The Clock alarm is a plain
+// next-occurrence HH:MM — correct as long as the device clock runs this location's timezone.
+async function setPhoneAlarm(kind, btn) {
+  if (btn) btn.disabled = true;
+  try {
+    const tomorrow = new Date(Date.now() + 86400000);
+    const d = await api.fetchPanchang(state.get("lat"), state.get("lon"), tomorrow,
+      state.get("tz"), state.get("ayanamsa"));
+    const src = kind === "sunrise" ? d.sun.sunrise_local : d.muhurta?.brahma?.start;
+    const m = String(src || "").match(/(\d{1,2}):(\d{2})/);
+    if (!m) { toast("Time unavailable for tomorrow"); }
+    else {
+      const offset = notify.getWakePrefs().offset || 0;   // same lead time as the wake alarms
+      let t = +m[1] * 60 + +m[2] - offset;
+      if (t < 0) t += 1440;
+      const label = (kind === "sunrise" ? "Sunrise" : "Brahma muhurta")
+        + (offset ? ` (${offset} min before)` : "") + " — Khagol";
+      globalThis.KhagolAndroid.setClockAlarm(Math.floor(t / 60), t % 60, label);
+    }
+  } catch (e) { toast(`Alarm failed: ${e?.message || e}`); }
+  if (btn) btn.disabled = false;
+}
+
+// Point-mode guidance: while pointing, an arrow + hint show how to tilt the phone to bring the
+// searched object on screen; it disappears the moment the object enters the view.
+let guideEl = null;
+function hidePointGuide() { if (guideEl) guideEl.hidden = true; }
+function updatePointGuide() {
+  const off = view3d.selectedOffset ? view3d.selectedOffset() : null;
+  if (!off || off.onScreen) { hidePointGuide(); return; }
+  if (!guideEl) {
+    guideEl = document.createElement("div");
+    guideEl.id = "point-guide";
+    guideEl.innerHTML = `<span class="pg-arrow">➤</span><span class="pg-text"></span>`;
+    document.body.appendChild(guideEl);
+  }
+  guideEl.hidden = false;
+  // Screen direction of the target: x = right (+dAz), y = down (CSS), so up = -dAlt.
+  const deg = Math.atan2(-off.dAlt, off.dAz) * 180 / Math.PI;
+  guideEl.querySelector(".pg-arrow").style.transform = `rotate(${deg.toFixed(0)}deg)`;
+  const dir = Math.abs(off.dAlt) > Math.abs(off.dAz)
+    ? (off.dAlt > 0 ? "up" : "down") : (off.dAz > 0 ? "right" : "left");
+  guideEl.querySelector(".pg-text").textContent = `${i18n.objectName(off.name)} — tilt ${dir}`;
+}
+
+// True-north correction for point mode: the compass gives MAGNETIC azimuth; add the local
+// declination from the bundled World Magnetic Model (offline). Re-applied on location change.
+async function applyDeclination() {
+  if (!pointSky) return;
+  try {
+    await geomag.loadModel(async (u) => (await fetch(u)).json());
+    const now = new Date();
+    const yd = Math.max(2025.0, Math.min(2030.0, now.getFullYear() + now.getMonth() / 12));
+    const d = geomag.declination(state.get("lat"), state.get("lon"), yd);
+    pointSky.setDeclination(d * Math.PI / 180);
+    toast(`True-north corrected: declination ${d >= 0 ? "+" : ""}${d.toFixed(1)}°`);
+  } catch { /* model unavailable -> magnetic north (still close in most places) */ }
+}
+
+// Point-at-sky (3D): device-orientation sensors drive the camera. Lazily created; turns itself
+// off (with a toast) when the device has no usable orientation sensor.
+let pointSky = null;
+function setPointMode(on) {
+  pointOn = on;
+  // Sensors own the camera; touch = zoom (pinch) + manual yaw alignment (sideways drag).
+  if (view3d.setPointingLock) {
+    view3d.setPointingLock(on,
+      (d) => { if (pointSky) pointSky.nudgeYaw(d); },
+      (h) => { if (pointSky) pointSky.setHold(h); });
+  }
+  if (!pointSky) pointSky = createPointSky((az, alt) => { if (pointOn) view3d.setPointing(az, alt); });
+  if (on) {
+    pointSky.start(() => {
+      toast("No orientation sensor — point mode unavailable");
+      pointOn = false; pointSky.stop();
+      // The camera lock was taken up front (before we knew a sensor would show up at all) --
+      // release it here too, or drag/keyboard orbit stays stuck disabled with no way back in
+      // (the toggle already reads "off", so clicking it again just repeats this same timeout).
+      if (view3d.setPointingLock) view3d.setPointingLock(false);
+      if (overlayBar) overlayBar.refresh();
+    }, () => toast("No compass on this device — pointing may drift slowly"));
+    applyDeclination();
+    // Point mode means "MY sky, HERE, NOW" — the observer location/time must match the phone.
+    // Field debugging traced "sun overhead at night" to the app quietly sitting on the Ujjain
+    // fallback (it was morning there): make the observed location/time explicit and self-heal.
+    dlog("point: observer", `lat=${state.get("lat").toFixed(3)} lon=${state.get("lon").toFixed(3)} tz=${state.get("tz")}`,
+      `pinned=${!!state.getState().pinnedTime} rate=${state.get("timeFlowRate")}`);
+    toast(`Sky for ${state.get("lat").toFixed(2)}°, ${state.get("lon").toFixed(2)}° · ${locLocalLabel(state.simTime())} ${state.get("tz")}`);
+    if (state.getState().pinnedTime || state.get("timeFlowRate") !== 1) {
+      toast("⚠ Time is not live — tap Now (or the ▶ chip) for the real sky");
+    } else {
+      toast("Drag sideways to align the sky (e.g. on the Moon) · pinch to zoom");
+    }
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const la = pos.coords.latitude, lo = pos.coords.longitude;
+        const d = Math.hypot(la - state.get("lat"), lo - state.get("lon"));
+        dlog("point: geofix", `lat=${la.toFixed(3)} lon=${lo.toFixed(3)} d=${d.toFixed(2)}deg`);
+        if (d > 0.5) {   // observer is somewhere else (e.g. Ujjain fallback) -> use the real fix
+          applyLocation(la, lo, null);
+          applyDeclination();
+          toast("Location updated to your GPS fix — sky re-anchored");
+        }
+      }, () => { /* no fix — keep the chosen location */ }, { maximumAge: 600000, timeout: 8000 });
+    }
+  } else {
+    pointSky.stop();
+  }
 }
 
 // On view change, re-apply the global deep-time state to whichever view we entered.
 function syncDeepTimeView() {
+  if (typeof syncTlVisibility === "function" && syncTlVisibility) syncTlVisibility();
   if (!(deepTimeOn && deepCapable())) stopDeepPlayback();   // left a deep-capable view
   const dv = deepView();
   if (dv && dv.setDeepTime) {
@@ -260,9 +323,8 @@ function syncDeepTimeView() {
 
 // Show the container for the current view, hide the others, resize the shown one.
 function applyView(v) {
-  for (const key of ["3d", "2d", "orrery", "panchang", "kundali"]) containers[key].hidden = (key !== v);
+  for (const key of ["3d", "2d", "orrery", "panchang", "kundali", "match"]) containers[key].hidden = (key !== v);
   if (v === "3d" || v === "2d" || v === "orrery") viewObj(v).resize();
-  setHint(v);
   if (v === "orrery") refetchOrrery(true);
   else if (v === "panchang") refetchPanchang(true);
   else if (v === "kundali") enterKundali();
@@ -328,8 +390,18 @@ function loop(now) {
   // Advance sim time by the flow rate (Section 5.1) unless pinned to an instant.
   const rate = state.get("timeFlowRate");
   const st = state.getState();
+  // Step the offset by the WALL clock's advance, not the rAF timestamp's: simTime() is
+  // Date.now() + offset, so with two clocks jittering against each other a paused sim
+  // (rate 0) crept a few ms either side of the entered instant -- and "06:15:00" read
+  // back as 06:14 whenever it landed a hair early. Integer ms from one clock cancel exactly.
+  // And when something else re-anchored the offset since the last frame (a typed time, a
+  // tz change, Now), the part of this frame that came before the anchor must not be
+  // stepped either -- that was a frame's worth of backwards creep at every commit.
+  const nowWall = Date.now();
+  const dtWall = lastWall && st.timeOffsetMs === lastOffsetSeen ? nowWall - lastWall : 0;
+  lastWall = nowWall;
   if (!st.pinnedTime && rate !== 1) {
-    st.timeOffsetMs += dtReal * (rate - 1);
+    st.timeOffsetMs += dtWall * (rate - 1);
     // Pin cleanly at the DE440s boundary instead of running the offset off into space.
     const raw = Date.now() + st.timeOffsetMs;
     const hitMax = raw > state.EPHEMERIS_MAX, hitMin = raw < state.EPHEMERIS_MIN;
@@ -342,6 +414,7 @@ function loop(now) {
   } else {
     atEphemerisLimit = false;
   }
+  lastOffsetSeen = st.timeOffsetMs;
   const simDate = state.simTime();
   const view = state.get("view");
 
@@ -353,8 +426,8 @@ function loop(now) {
     orreryView.frame();
   } else if (view === "panchang") {
     managePanchang(simDate);            // DOM panel, no canvas render
-  } else if (view === "kundali") {
-    /* DOM panel, self-managed via the birth form */
+  } else if (view === "kundali" || view === "match") {
+    /* DOM panel, self-managed via the birth form(s) */
   } else {
     if (api.needsSkyRefetch({ simMs: simDate.getTime(), lastSimMs: simAtFetch,
         lastRealMs: lastRealFetch, flowRate: rate })) {
@@ -363,6 +436,7 @@ function loop(now) {
     // LST advanced client-side from the last fetch -> smooth 60 FPS rotation.
     const lst = astro.advanceLst(lstFetched, (simDate.getTime() - simAtFetch) / 1000);
     viewObj(view).frame(lst, state.get("lat"), simDate, state.get("atmosphere"));
+    if (view === "3d" && pointOn) updatePointGuide(); else hidePointGuide();
   }
 
   fpsAccum += dtReal; fpsFrames++;
@@ -398,8 +472,21 @@ function updateHud(simDate) {
   // Second line: where the view is pointing / zoomed (exact degrees, alt-az / orrery tilt-spin-zoom).
   const v = state.get("view");
   const vo = viewObj(v);
-  const orient = (vo && vo.getOrientation && (v === "3d" || v === "2d" || v === "orrery")) ? vo.getOrientation() : "";
-  hud.innerHTML = `${line1}${orient ? `<br><span class="hud-orient">${orient}</span>` : ""}`;
+  let orient = (vo && vo.getOrientation && (v === "3d" || v === "2d" || v === "orrery")) ? vo.getOrientation() : "";
+  if (pointOn && pointSky && v === "3d") {
+    const st = pointSky.status();
+    const trim = pointSky.yawTrimDeg || 0;
+    orient += ` · 🧭 ${st.source} ${st.rate.toFixed(1)}°/s ${st.frozen ? "❄" : "live"}${Math.abs(trim) > 0.5 ? ` trim ${trim > 0 ? "+" : ""}${trim.toFixed(0)}°` : ""}`;
+    if (view3d.getPose) {
+      const pz = view3d.getPose();
+      const off = view3d.selectedOffset ? view3d.selectedOffset() : null;
+      dlog("cam:", `az=${pz.az.toFixed(1)} alt=${pz.alt.toFixed(1)} tAz=${pz.tAz.toFixed(1)} tAlt=${pz.tAlt.toFixed(1)} fov=${pz.fov.toFixed(0)}`,
+        off ? `sel dAz=${(off.dAz * 180 / Math.PI).toFixed(1)} dAlt=${(off.dAlt * 180 / Math.PI).toFixed(1)} on=${off.onScreen}` : "sel=none");
+    }
+  }
+  // The top strip already shows place/time — the HUD carries only the orientation line
+  // (and collapses entirely in panel views), freeing the bottom row.
+  hud.innerHTML = orient ? `<span class="hud-orient">${orient}</span>` : "";
 }
 
 // Overlay toggles applied to both views (and mirrored into state for persistence).
@@ -409,9 +496,15 @@ const OVERLAY_METHOD = {
   stars: "toggleStars",
 };
 // `stars` defaults ON (the field is the catalog stars; hide them to focus on Sun/Moon/planets).
-const overlayState = { constellations: false, rashi: false, messier: false, milkyway: false, grid: false, stars: true };
+const overlayState = { constellations: false, rashi: true, messier: false, milkyway: false, grid: false, stars: true };
+// Layer choices survive restarts: merge the saved set over the fresh-install defaults
+// (rashi ON out of the box), and every change writes back.
+try {
+  Object.assign(overlayState, JSON.parse(localStorage.getItem("overlayState") || "{}"));
+} catch { /* fresh install / corrupt -> defaults */ }
 function setOverlay(key, val) {
   overlayState[key] = val;
+  try { localStorage.setItem("overlayState", JSON.stringify(overlayState)); } catch { /* quota */ }
   const m = OVERLAY_METHOD[key];
   view3d[m](val); view2d[m](val);
   // The Rashi band and the star field also exist in the orrery, driven by the same toggles.
@@ -452,11 +545,63 @@ function onKey(e) {
   // browser/OS shortcuts (Ctrl+L address bar, etc.) are never hijacked.
   if (isTypingTarget(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
   const rate = state.get("timeFlowRate");
-  if (e.key === "k" || e.key === "K") { state.resetToNow(); }
+  if (deepTimeOn && deepCapable()) {
+    // Deep mode owns the time keys: same muscle memory, epoch target.
+    if (e.key === "k" || e.key === "K") deepPlay("pause");
+    else if (e.key === "l" || e.key === "L") deepPlay("fwd");
+    else if (e.key === "j" || e.key === "J") deepPlay("rev");
+  }
+  else if (e.key === "k" || e.key === "K") { state.resetToNow(); }
   else if (e.key === "l" || e.key === "L") { setRate(stepRate(rate, +1)); }
   else if (e.key === "j" || e.key === "J") { setRate(stepRate(rate, -1)); }
   else if (e.key === "g" || e.key === "G") { setOverlay("grid", !overlayState.grid); }
 }
+// On-screen time-lapse controls (same idiom as the Deep-time ◀ ⏸ ▶ panel) so touch users can
+// run time-lapse without a keyboard: ◀ = J, ▶ = L, middle chip = K (back to live now). Shown in
+// the three sky views only; the chip mirrors the current rate.
+let tlPanel = null, tlChip = null, syncTlVisibility = null;
+function setupTimelapsePanel() {
+  tlPanel = document.createElement("div");
+  tlPanel.id = "tl-panel";
+  tlPanel.innerHTML = `
+    <button class="dt-btn" data-tl="rev" title="slower / reverse (J)">◀</button>
+    <button class="dt-btn" data-tl="pause" title="pause / resume">⏸</button>
+    <button class="dt-btn" data-tl="fwd" title="faster (L)">▶</button>
+    <span class="tl-chip">live</span>
+    <button class="tl-now" title="back to live now (K)" hidden>⏺ Now</button>`;
+  document.body.appendChild(tlPanel);
+  tlChip = tlPanel.querySelector(".tl-chip");
+  tlPanel.querySelector('[data-tl="rev"]').onclick = () => setRate(stepRate(state.get("timeFlowRate"), -1));
+  tlPanel.querySelector('[data-tl="fwd"]').onclick = () => setRate(stepRate(state.get("timeFlowRate"), +1));
+  // ⏸ toggles pause <-> the rate it interrupted (freeze the sky at the current sim instant).
+  let tlPrevRate = 1;
+  tlPanel.querySelector('[data-tl="pause"]').onclick = () => {
+    const r = state.get("timeFlowRate");
+    if (r !== 0) { tlPrevRate = r; setRate(0); }
+    else setRate(tlPrevRate || 1);
+  };
+  // The chip is STATUS ONLY; the way back to live time is an explicit button that appears
+  // exactly when you've left it (rate != live) — no hidden affordance to guess at.
+  const tlNow = tlPanel.querySelector(".tl-now");
+  tlNow.onclick = () => { state.resetToNow(); setRate(1); if (controlBar) controlBar.setNow && controlBar.setNow(); };
+  const syncChip = () => {
+    const r = state.get("timeFlowRate");
+    tlChip.textContent = r === 1 ? "⏺ live" : r === 0 ? "⏸ paused" : `${r < 0 ? "◀ " : "▶ "}${rateLabel(r)}`;
+    tlNow.hidden = r === 1;
+    // Gold on the ACTIVE control, matching the deep-time panel's idiom.
+    tlPanel.querySelector('[data-tl="rev"]').classList.toggle("active", r < 0);
+    tlPanel.querySelector('[data-tl="fwd"]').classList.toggle("active", r > 1);
+    tlPanel.querySelector('[data-tl="pause"]').classList.toggle("active", r === 0);
+  };
+  syncTlVisibility = () => {
+    const v = state.get("view");
+    tlPanel.hidden = !(v === "3d" || v === "2d" || v === "orrery") || (deepTimeOn && deepCapable());
+  };
+  state.subscribe("timeFlowRate", syncChip);
+  state.subscribe("view", syncTlVisibility);
+  syncChip(); syncTlVisibility();
+}
+
 function stepRate(rate, dir) {
   const base = state.get("view") === "orrery" ? ORRERY_PRESETS : RATE_PRESETS;
   const presets = [...base.map((r) => -r), ...base].filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
@@ -503,6 +648,7 @@ function onPickDay(dateStr) {
   const hh = Math.floor(noonUtc), mm = Math.round((noonUtc - hh) * 60);
   state.pinTime(new Date(Date.UTC(y, mo - 1, da, hh, mm)));
   state.set("timeFlowRate", 0);
+  controlBar.setDateTime(state.simTime());   // the Place & time fields show the picked day too
   showPanchangSub("today");
   refetchPanchang(true);
 }
@@ -513,8 +659,8 @@ function showPanchangSub(which) {
   document.getElementById("pj-saved").hidden = which !== "saved";
   document.querySelectorAll(".pj-sub").forEach((b) => b.classList.toggle("active", b.dataset.sub === which));
   if (which === "month") {
-    const d = state.simTime();
-    calendarView.show(d.getUTCFullYear(), d.getUTCMonth() + 1);
+    const w = state.utcToWall(state.simTime(), state.get("tz"));   // the local month, not UTC's
+    calendarView.show(+w.slice(0, 4), +w.slice(5, 7));
   }
 }
 
@@ -528,9 +674,10 @@ function loadSavedEvent(ev) {
   try {
     state.set("lat", ev.lat); state.set("lon", ev.lon); if (ev.zone) state.set("tz", ev.zone);
     controlBar.setLatLon(ev.lat, ev.lon);
+    controlBar.setPlace(ev.place || null);   // restore the CITY as typed (older saves: coords)
     if (ev.wall) { state.setWallTime(ev.wall); controlBar.setDateTime(state.simTime()); state.set("timeFlowRate", 0); }
   } finally { applyingSync = false; }
-  pushLocation(ev.label || null);   // share the event's location (label) + date/time to the popup
+  pushLocation(ev.place || null);   // share the event's location + date/time to the popup
   pushTime(ev.wall || null);
   refetchCurrent();
 }
@@ -545,6 +692,7 @@ async function saveCurrentEvent() {
   if (!label) return;
   await sev.addEvent({
     label, lat, lon, zone: tz, wall: state.utcToWall(state.simTime(), tz),
+    place: document.getElementById("cb-city")?.value.trim() || null,   // the city as typed
     masa: p.masa.name, paksha: p.paksha, tithi_name: p.tithi_at_sunrise.name, tithi_n: p.tithi_at_sunrise.number,
   });
   renderSavedPanel();
@@ -559,8 +707,119 @@ async function renderSavedPanel() {
   if (!host) return;
   host.innerHTML = `<div class="se-head"><button class="se-save" type="button">💾 Save current date &amp; location</button></div>
     <div class="se-list"></div>
-    <p class="se-hint">Saved dates recur by <b>tithi + masa</b> (yearly) and are marked ★ in Today and the Month calendar. Load restores the location + date/time for Kundali / Panchang / sky map.</p>`;
+    <p class="se-hint">Saved dates recur by <b>tithi + masa</b> (yearly) and are marked ★ in the Day card and the Month calendar. Load restores the location + date/time for Kundali / Panchang / sky map.</p>
+    <div class="se-export">
+      <div class="se-x-title">📅 Export to calendar (.ics)</div>
+      <label class="se-x-opt"><input type="checkbox" id="sx-fest" checked> Festivals</label>
+      <label class="se-x-opt"><input type="checkbox" id="sx-saved" checked> Saved dates</label>
+      <label class="se-x-opt"><input type="checkbox" id="sx-ecl" checked> Eclipses</label>
+      <label class="se-x-opt">From <input type="number" id="sx-from" min="1900" max="2100"></label>
+      <label class="se-x-opt">To <input type="number" id="sx-to" min="1900" max="2100"></label>
+      <button id="sx-go" type="button">⬇ Export</button>
+      <div class="se-x-hint">Import the file in Google Calendar (Settings → Import &amp; export) — pick a
+        dedicated “Khagol” calendar as the target to keep it a separate category you can toggle or remove.
+        Festivals and saved dates export as all-day entries; eclipses carry their real start/end times.</div>
+    </div>
+    <div class="se-export" id="se-notify" hidden>
+      <div class="se-x-title">🔔 Daily reminders</div>
+      <label class="se-x-opt"><input type="checkbox" id="nx-on"> Remind me</label>
+      <label class="se-x-opt"><input type="checkbox" id="nx-fest"> Festivals</label>
+      <label class="se-x-opt"><input type="checkbox" id="nx-saved"> Saved dates</label>
+      <label class="se-x-opt"><input type="checkbox" id="nx-ecl"> Eclipses</label>
+      <label class="se-x-opt se-x-sub"><input type="checkbox" id="nx-ecl-vis"> only if visible here</label>
+      <label class="se-x-opt">At <select id="nx-hour"></select></label>
+      <div class="se-x-hint">A notification on the morning of each festival / saved tithi / grahana (next 12 months,
+        this location) — works fully offline; the schedule refreshes every time you open the app.</div>
+    </div>
+    <div class="se-export" id="se-wake" hidden>
+      <div class="se-x-title">🌅 Wake alarms (daily-changing times)</div>
+      <label class="se-x-opt"><input type="checkbox" id="wx-on"> Enable</label>
+      <label class="se-x-opt"><input type="checkbox" id="wx-sunrise"> Sunrise</label>
+      <label class="se-x-opt"><input type="checkbox" id="wx-brahma"> Brahma muhurta</label>
+      <label class="se-x-opt">Ring <input type="number" id="wx-offset" min="0" max="1440" step="5"> min before</label>
+      <button id="wx-test" type="button">🔔 Test ring</button>
+      <div class="se-x-hint">Exact alarms that track each day's real sunrise (⏰ shows in the status bar;
+        ring includes a Snooze). Times are for this location; the 45-day schedule refreshes on app open.</div>
+    </div>`;
   host.querySelector(".se-save").onclick = saveCurrentEvent;
+  // Calendar export: one pass over the chosen year's months collects festivals (incl. Sankrantis)
+  // and the recurrence day of every saved tithi, for the CURRENT location/ayanamsa.
+  const fromEl = host.querySelector("#sx-from"), toEl = host.querySelector("#sx-to");
+  fromEl.value = toEl.value = new Date(state.simTime()).getFullYear();
+  host.querySelector("#sx-go").onclick = async () => {
+    const fest = host.querySelector("#sx-fest").checked;
+    const savedOn = host.querySelector("#sx-saved").checked;
+    const eclOn = host.querySelector("#sx-ecl").checked;
+    if (!fest && !savedOn && !eclOn) { toast("Pick festivals, saved dates and/or eclipses"); return; }
+    const clamp = (v) => Math.max(1900, Math.min(2100, +v || new Date().getFullYear()));
+    const yearFrom = clamp(fromEl.value), yearTo = clamp(toEl.value);
+    if (Math.abs(yearTo - yearFrom) + 1 > 12) { toast("Max 12 years per export"); return; }
+    const span = yearFrom === yearTo ? `${yearFrom}` : `${Math.min(yearFrom, yearTo)}-${Math.max(yearFrom, yearTo)}`;
+    const btn = host.querySelector("#sx-go");
+    btn.disabled = true; btn.textContent = "Computing…";
+    try {
+      const { ics, nFest, nSaved, nEclipse } = await buildIcsRange({
+        yearFrom, yearTo, festivals: fest, saved: savedOn, eclipses: eclOn,
+        lat: state.get("lat"), lon: state.get("lon"), tz: state.get("tz"), ayanamsa: state.get("ayanamsa"),
+      });
+      if (!nFest && !nSaved && !nEclipse) toast(`Nothing to export for ${span}`);
+      else { saveIcs(`khagol-panchang-${span}.ics`, ics); toast(`Exported ${nFest + nSaved + nEclipse} events (${span})`); }
+    } catch (e) { toast(`Export failed: ${e?.message || e}`); }
+    btn.disabled = false; btn.textContent = "⬇ Export";
+  };
+  // Daily reminders (Android app only — the card stays hidden elsewhere).
+  const nCard = host.querySelector("#se-notify");
+  if (notify.available()) {
+    nCard.hidden = false;
+    const on = nCard.querySelector("#nx-on"), nf = nCard.querySelector("#nx-fest"),
+      ns = nCard.querySelector("#nx-saved"), ne = nCard.querySelector("#nx-ecl"),
+      nev = nCard.querySelector("#nx-ecl-vis"), nh = nCard.querySelector("#nx-hour");
+    nh.innerHTML = Array.from({ length: 24 }, (_, h) =>
+      `<option value="${h}">${String(h).padStart(2, "0")}:00</option>`).join("");
+    const p = notify.getPrefs();
+    on.checked = p.enabled; nf.checked = p.fest; ns.checked = p.saved; ne.checked = p.ecl;
+    nev.checked = p.eclVisibleOnly; nev.disabled = !p.ecl;
+    nh.value = String(p.hour);
+    const apply = async () => {
+      nev.disabled = !ne.checked;
+      notify.setPrefs({ enabled: on.checked, fest: nf.checked, saved: ns.checked, ecl: ne.checked,
+        eclVisibleOnly: nev.checked, hour: +nh.value });
+      try {
+        const r = await notify.syncNotifications({ lat: state.get("lat"), lon: state.get("lon"),
+          tz: state.get("tz"), ayanamsa: state.get("ayanamsa") });
+        if (on.checked) toast(`Reminders on — ${r.n} dates scheduled`);
+        else toast("Reminders off");
+      } catch (e) { toast(`Reminder setup failed: ${e?.message || e}`); }
+    };
+    for (const el of [on, nf, ns, ne, nev, nh]) el.addEventListener("change", apply);
+  }
+  // Wake alarms (Android only): exact alarms at each day's computed sunrise / brahma time.
+  const wCard = host.querySelector("#se-wake");
+  if (notify.wakeAvailable()) {
+    wCard.hidden = false;
+    const won = wCard.querySelector("#wx-on"), wsun = wCard.querySelector("#wx-sunrise"),
+      wbr = wCard.querySelector("#wx-brahma"), woff = wCard.querySelector("#wx-offset");
+    const wp = notify.getWakePrefs();
+    won.checked = wp.enabled; wsun.checked = wp.sunrise; wbr.checked = wp.brahma; woff.value = wp.offset;
+    const wapply = async () => {
+      const off = Math.max(0, Math.min(1440, +woff.value || 0));
+      woff.value = off;                                     // reflect any clamp — never silent
+      notify.setWakePrefs({ enabled: won.checked, sunrise: wsun.checked, brahma: wbr.checked, offset: off });
+      try {
+        const r = await notify.syncWakeAlarms({ lat: state.get("lat"), lon: state.get("lon"),
+          tz: state.get("tz"), ayanamsa: state.get("ayanamsa") });
+        if (!won.checked) toast("Wake alarms off");
+        else if (r.next) toast(`Wake alarms on — next ring ${r.next.at.replace("T", " ")}`);
+        else toast("Wake alarms on — no upcoming rings in the next 45 days");
+      } catch (e) { toast(`Wake-alarm setup failed: ${e?.message || e}`); }
+    };
+    for (const el of [won, wsun, wbr, woff]) el.addEventListener("change", wapply);
+    const wtest = wCard.querySelector("#wx-test");
+    wtest.onclick = () => {
+      if (globalThis.KhagolAndroid?.testWakeAlarm) globalThis.KhagolAndroid.testWakeAlarm();
+      else toast("Test not available");
+    };
+  }
   const list = host.querySelector(".se-list");
   list.innerHTML = events.length ? events.map((e) => `
     <div class="se-row" data-id="${e.id}">
@@ -587,7 +846,15 @@ function setupSavedMenu() {
     <div id="cb-saved-menu" class="cb-saved-menu" hidden></div>`;
   bar.appendChild(grp);
   const btn = grp.querySelector("#cb-saved-btn"), menu = grp.querySelector("#cb-saved-menu");
-  btn.onclick = (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; if (!menu.hidden) renderSavedMenu(); };
+  btn.onclick = async (e) => {
+    e.stopPropagation();
+    menu.hidden = !menu.hidden;
+    if (!menu.hidden) {
+      await renderSavedMenu();
+      // In the sheet the menu is in-flow below the fold — bring it into view.
+      try { menu.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch { /* old webview */ }
+    }
+  };
   document.addEventListener("click", (e) => { if (!grp.contains(e.target)) menu.hidden = true; });
 }
 
@@ -672,9 +939,6 @@ function registerPWA() {
   if ("serviceWorker" in navigator) {
     /* no service worker in the extension */
   }
-  const banner = document.getElementById("offline-banner");
-  const upd = () => { if (banner) banner.hidden = navigator.onLine; };
-  window.addEventListener("online", upd); window.addEventListener("offline", upd); upd();
 }
 
 // Language relabel (Phase 9D.2): load the bundle, relabel static chrome, re-render the
@@ -724,7 +988,9 @@ function onSelectName(name) {
     return;
   }
   view.setSelected(desc); showInfo(desc);
-  const alt = view.lookAtSelected();
+  // In point mode the sensors own the camera: aiming would fight them (a visible swing that
+  // snaps back, landing differently with zoom). Keep the selection; the guide chip directs.
+  const alt = (pointOn && v === "3d") ? null : view.lookAtSelected();
   // Below the horizon, the object is only HIDDEN when atmosphere is on (2D dome clips at the horizon;
   // 3D hides it behind the opaque ground). In Space view (atmosphere off) BOTH views render it past
   // the horizon -- it's already highlighted on screen, so don't nag. Only warn with atmosphere on.
@@ -771,6 +1037,7 @@ async function applyLocation(la, lo, city) {
 }
 
 export async function init() {
+  dbgInit();
   loadSettings();                 // apply saved prefs (ayanamsa/node/language/...) before fetches
   const synced = await sync.getSync();   // location/date-time shared with the popup
   const fromSync = synced && synced.lat != null;
@@ -790,14 +1057,21 @@ export async function init() {
   orreryView = createOrrery(containers["orrery"]);
   orreryLog = state.get("orreryScale") === "log";       // apply saved orrery scale default
   orreryView.setScaleMode(orreryLog ? "log" : "linear");
-  panchangTab = createPanchangTab(document.getElementById("pj-today"));
+  panchangTab = createPanchangTab(document.getElementById("pj-today"), { onSetAlarm: setPhoneAlarm, onShiftDay: onPickDay });
   calendarView = createCalendar(document.getElementById("pj-month"), {
     fetchMonth: (y, m) => api.fetchMonth(y, m, state.get("lat"), state.get("lon"), state.get("tz"), state.get("ayanamsa")),
     onPickDay,
+    // "Today" = the real date at the current location (not the sim instant, which may be pinned).
+    today: () => { const w = state.utcToWall(new Date(), state.get("tz")); return { y: +w.slice(0, 4), m: +w.slice(5, 7) }; },
   });
   document.querySelectorAll(".pj-sub").forEach((b) => { b.onclick = () => showPanchangSub(b.dataset.sub); });
+  // Telemetry tripwire: any surviving camera-aim path in point mode shows up in the log.
+  const _origLAS = view3d.lookAtSelected;
+  view3d.lookAtSelected = (...a) => { if (pointOn) dlog("TRIPWIRE lookAtSelected in point mode!"); return _origLAS(...a); };
   containers["kundali"] = document.getElementById("kundali-container");
   kundaliView = createKundali(containers["kundali"]);
+  containers["match"] = document.getElementById("match-container");
+  matchView = createMatch(containers["match"]);
   controlBar = createControlBar(document.getElementById("control-bar-host"), {
     onLocation: (la, lo, city) => { applyLocation(la, lo, city); },
     onTime: () => { refetchCurrent(); pushTime(state.utcToWall(state.simTime(), state.get("tz"))); },
@@ -859,24 +1133,28 @@ export async function init() {
     console.warn("overlays unavailable:", err.message);
   }
 
-  createViewBar(document.getElementById("view-bar-host"), ["3d", "2d", "orrery", "panchang", "kundali"]);
-  createOverlayBar(document.getElementById("overlay-bar-host"), [
+  createViewBar(document.getElementById("view-bar-host"), ["3d", "2d", "orrery", "panchang", "kundali", "match"]);
+  overlayBar = createOverlayBar(document.getElementById("overlay-bar-host"), [
     // Atmosphere toggle (Phase 7C): ON = refracted ground view (default), OFF = geometric
     // space view. Visual only -- never affects the Panchang/Kundali/rise-set/kalam.
+    { label: "Rashi band", views: ["3d", "2d", "orrery"], get: () => overlayState.rashi, set: (v) => setOverlay("rashi", v) },
     { label: "🚀 Space view", views: ["3d", "2d"], get: () => !state.get("atmosphere"), set: (v) => state.set("atmosphere", !v) },
     { label: "Stars", views: ["3d", "2d", "orrery"], get: () => overlayState.stars, set: (v) => setOverlay("stars", v) },
     { label: "Constellations", views: ["3d", "2d"], get: () => overlayState.constellations, set: (v) => setOverlay("constellations", v) },
-    { label: "Rashi band", views: ["3d", "2d", "orrery"], get: () => overlayState.rashi, set: (v) => setOverlay("rashi", v) },
     { label: "Messier", views: ["3d", "2d"], get: () => overlayState.messier, set: (v) => setOverlay("messier", v) },
     { label: "Milky Way", views: ["3d"], get: () => overlayState.milkyway, set: (v) => setOverlay("milkyway", v) },
     { label: "Grid", views: ["3d", "2d"], get: () => overlayState.grid, set: (v) => setOverlay("grid", v) },
     // Orrery-only controls.
-    { label: "Log scale", views: ["orrery"], get: () => orreryLog, set: (v) => { orreryLog = v; orreryView.setScaleMode(v ? "log" : "linear"); } },
+    { label: "Log scale", views: ["orrery"], get: () => orreryLog, set: (v) => { orreryLog = v; orreryView.setScaleMode(v ? "log" : "linear"); state.set("orreryScale", v ? "log" : "linear"); } },
     { label: "Deep time", views: ["3d", "2d", "orrery"], get: () => deepTimeOn, set: setDeepTime },
+    // Point-at-sky (3D, device-orientation sensors): hold the phone up and the view tracks
+    // exactly where it points, for the current location + sim time. No-ops without sensors.
+    { label: "🧭 Point", views: ["3d"], get: () => pointOn, set: setPointMode },
   ]);
 
   // Settings panel (Phase 9D.1): persists ayanamsa/node/language/telescopic/scale prefs.
   createSettingsPanel({
+    onDebugLog: () => { const n = dbgSave(); toast(`Debug log saved: ${n}`); },
     onChange: (field) => {
       if (field === "orreryScale" || field === "*") {
         orreryLog = state.get("orreryScale") === "log";
@@ -914,11 +1192,6 @@ export async function init() {
   state.subscribe("view", applyView);
   state.subscribe("view", syncDeepTimeView);
   setupDeepTime();
-  state.subscribe("view", () => requestAnimationFrame(layoutBars));   // bar heights change per view
-  window.addEventListener("resize", () => requestAnimationFrame(layoutBars));
-  setupBarsHandle();
-  requestAnimationFrame(layoutBars);
-  setHint(state.get("view"));
   window.addEventListener("keydown", onKey);
 
   // Invariant: Language only applies in Hindu mode. Self-correct a saved English+Indian combo
@@ -930,8 +1203,58 @@ export async function init() {
   relabelObjects();
   registerPWA();
 
+  // Apply the restored layer choices to the freshly-created views (defaults + persisted).
+  for (const [k, v] of Object.entries(overlayState)) setOverlay(k, v);
+
+  // Follow chip (orrery): following is now a VISIBLE, dismissible state. Appears only for a
+  // non-default body (the Sun is the home pivot); ✕ releases back to the Sun.
+  const followChip = document.createElement("button");
+  followChip.id = "follow-chip";
+  followChip.type = "button";
+  followChip.hidden = true;
+  document.body.appendChild(followChip);
+  followChip.onclick = () => orreryView.clearFollow();
+  orreryView.setFollowHook((id, name) => {
+    followChip.hidden = !id;
+    if (id) followChip.textContent = `📌 Following ${i18n.objectName(name || id)} ✕`;
+  });
+  state.subscribe("view", (v) => { if (v !== "orrery") followChip.hidden = true; else orreryView.pokeFollowHook && orreryView.pokeFollowHook(); });
+
+  setupTimelapsePanel();
+  // Compact shell last, so every control it relocates (control bar, overlay bar, search box,
+  // settings gear) already exists with its wiring attached.
+  setupMobileChrome();
+  state.subscribe("lat", () => { if (pointOn) applyDeclination(); });
+  state.subscribe("lon", () => { if (pointOn) applyDeclination(); });
+
+  // The reminder schedule is location-specific — whether an eclipse is above your horizon, and
+  // the sunrise a wake alarm rings at, both move with you — so a location change has to rebuild
+  // it. Debounced, because lat/lon fire per keystroke and a rebuild is a 12-month engine pass.
+  let relocTimer = null;
+  const resyncForLocation = () => {
+    clearTimeout(relocTimer);
+    relocTimer = setTimeout(() => {
+      const loc = { lat: state.get("lat"), lon: state.get("lon"),
+        tz: state.get("tz"), ayanamsa: state.get("ayanamsa") };
+      if (notify.available() && notify.getPrefs().enabled) notify.syncNotifications(loc).catch(() => {});
+      if (notify.wakeAvailable() && notify.getWakePrefs().enabled) notify.syncWakeAlarms(loc).catch(() => {});
+    }, 2500);
+  };
+  for (const k of ["lat", "lon", "tz"]) state.subscribe(k, resyncForLocation);
+
   lastFrame = performance.now();
   requestAnimationFrame(loop);
+
+  // Refresh the reminder schedule in the background (Android): recomputes the next 12 months
+  // for the current location so the native plan never goes stale while the app is in use.
+  if (notify.available() && notify.getPrefs().enabled) {
+    notify.syncNotifications({ lat: state.get("lat"), lon: state.get("lon"),
+      tz: state.get("tz"), ayanamsa: state.get("ayanamsa") }).catch(() => { /* background */ });
+  }
+  if (notify.wakeAvailable() && notify.getWakePrefs().enabled) {
+    notify.syncWakeAlarms({ lat: state.get("lat"), lon: state.get("lon"),
+      tz: state.get("tz"), ayanamsa: state.get("ayanamsa") }).catch(() => { /* background */ });
+  }
 
   if (new URLSearchParams(location.search).has("debug")) await debugPolaris();
 }

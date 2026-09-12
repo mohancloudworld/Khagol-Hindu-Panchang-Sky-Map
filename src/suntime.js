@@ -1,4 +1,4 @@
-// Rise/set + governing-sunrise helpers. DST-aware via an IANA
+// Rise/set + governing-sunrise helpers — ports app/panchang/sunrise.py. DST-aware via an IANA
 // `zone` name (tz.js). Dates are JS Date (UTC instants); ymd = {y,mo,d}.
 import * as swe from "./sweph.js";
 import { jdToDate, localMidnightJd, ymdOfInstant, addDays } from "./tz.js";

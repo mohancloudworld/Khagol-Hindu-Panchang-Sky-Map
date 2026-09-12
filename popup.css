@@ -21,10 +21,18 @@ body {
 .pp-date { font-weight: 600; }
 .pp-place { color: var(--muted); font-size: 12px; }
 .pp-when {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   padding: 6px 12px; border-bottom: 1px solid var(--line);
 }
-.pp-when input { flex: 1; background: var(--card, #1a1f2e); color: inherit; border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; font: inherit; }
+.pp-when input, .pp-when .df-pick { background: var(--card, #1a1f2e); color: inherit; border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; font: inherit; }
+.pp-when .df-row { flex: 1; position: relative; display: grid; grid-template-columns: 2.2fr 1.2fr 1.2fr 2fr auto; gap: 4px; }
+.pp-when .df-row input { width: 100%; min-width: 0; text-align: center; padding-left: 2px; padding-right: 2px; }
+.pp-when .df-hidden { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.pp-when .df-pick { cursor: pointer; padding: 3px 5px; }
+.pp-when input.df-bad { border-color: #e05a5a; color: #ff8a8a; }
+.pp-when .df-msg { width: 100%; font-size: 11px; color: #ff8a8a; }
+.pp-when .df-msg.df-note { color: var(--muted); }
+.pp-when .df-msg[hidden] { display: none; }
 .pp-body { padding: 6px 0; min-height: 120px; }
 .pp-loading { padding: 24px 12px; color: var(--muted); text-align: center; }
 

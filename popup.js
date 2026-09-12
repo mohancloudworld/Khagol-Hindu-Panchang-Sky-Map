@@ -3,6 +3,7 @@
 // full offline sky map in a tab.
 import * as api from "./src/api-local.js";
 import * as sync from "./src/sync.js";
+import { attachDateBoxes } from "./js/datefield.js";
 
 const B = globalThis.browser ?? globalThis.chrome;
 const $ = (id) => document.getElementById(id);
@@ -50,6 +51,19 @@ async function pick(loc) {   // loc: { lat, lon, zone, label }
 }
 
 const hm = (iso) => { const m = iso && iso.match(/T(\d\d:\d\d)/); return m ? m[1] : ""; };
+// Grahana, when the day has one. Rare enough (~5 days a year) that a conditional row costs
+// nothing, prominent enough that the toolbar is where you want to be told. Festivals stay out
+// of the popup because there are ~40 a year and no room for a variable list; an eclipse is a
+// different order of frequency.
+const grahanaRow = (p) => (p.grahana || []).map((g) => row(
+  g.grahana,
+  `${g.type}${g.obscuration == null ? "" : ` · ${g.obscuration >= 0.995 ? 100 : Math.round(g.obscuration * 100)}%`}`,
+  `${g.kind === "lunar"
+      ? `${hm(g.partial_begin_local || g.penumbral_begin_local)}–${hm(g.partial_end_local || g.penumbral_end_local)}`
+      : `${hm((g.local && g.local.first_contact_local) || g.begin_local)}–${hm((g.local && g.local.fourth_contact_local) || g.end_local)}`}` +
+  (g.visible_here === false ? " · not visible here" : ""),
+)).join("");
+
 const row = (k, v, sub) => `<div class="pp-row"><span class="pp-k">${k}</span><span class="pp-v">${v}${sub ? `<span class="pp-next">${sub}</span>` : ""}</span></div>`;
 
 async function render() {
@@ -58,11 +72,13 @@ async function render() {
   // Show the effective date/time: the pinned wall, else the current local time (so the field is
   // never blank). Leaving it untouched keeps "now"; editing it pins that instant.
   $("pp-dt").value = loc.wall || utcToWall(new Date(), loc.zone || "UTC");
+  dtBoxes.sync();
   try {
     const p = await api.fetchPanchang(loc.lat, loc.lon, whenDate(loc), loc.zone || "auto", "lahiri");
     $("pp-date").textContent = `${p.date_local} · ${p.vara.replace(/ \(.*/, "")}`;
     const ti = p.tithi_at_sunrise, nk = p.nakshatra_at_sunrise;
     $("pp-body").innerHTML = [
+      grahanaRow(p),
       row("Tithi", ti.display, ti.ends_at_local ? `→ ends ${hm(ti.ends_at_local)}` : ""),
       row("Nakshatra", nk.name, nk.ends_at_local ? `→ ${hm(nk.ends_at_local)}` : ""),
       row("Yoga", p.yoga.name),
@@ -79,7 +95,8 @@ async function render() {
 $("pp-edit-loc").onclick = () => { const f = $("pp-locform"); f.hidden = !f.hidden; if (!f.hidden) $("pp-city").focus(); };
 $("pp-open-app").onclick = () => { const url = B.runtime.getURL("app.html"); if (B.tabs?.create) B.tabs.create({ url }); else window.open(url, "_blank"); };
 
-// Date/time (shared with the sky map).
+// Date/time (shared with the sky map): typed Y M D HH:MM boxes in front of the native field.
+const dtBoxes = attachDateBoxes($("pp-dt"), { time: true });
 $("pp-dt").addEventListener("change", async () => {
   const wall = $("pp-dt").value || null;       // "YYYY-MM-DDTHH:MM" in the location's zone
   current = await put({ wall }) || { ...current, wall };

@@ -6,7 +6,7 @@ import * as api from "./api.js";
 
 const LABELS = {
   "3d": "3D Sky", "2d": "2D Dome", orrery: "Solar System",
-  panchang: "Panchang", kundali: "Kundali",
+  panchang: "Panchang", kundali: "Kundali", match: "Match",
 };
 
 // Build the segmented view switcher. `views` is the ordered list of enabled view keys.
@@ -34,31 +34,9 @@ export function createViewBar(container, views) {
 
 // (wallToUtc / utcToWall now live in state.js -- the single owner of the time invariant.)
 
-// Smart 24h mask applied live as the user types: digits auto-format to "HH:MM". A leading
-// 3-9 (can't begin a two-digit hour) pads to "0X:" and advances to minutes, mirroring the
-// old native picker. Returns the partial-but-tidy string to write back into the input.
-export function maskTime(raw) {
-  const d = raw.replace(/\D/g, "").slice(0, 4);
-  if (!d) return "";
-  let h, rest;
-  if (d[0] >= "3") { h = "0" + d[0]; rest = d.slice(1); }           // 3-9 -> single-digit hour
-  else if (d.length === 1) return d;                               // 0/1/2 -> await 2nd digit
-  else if (+d.slice(0, 2) <= 23) { h = d.slice(0, 2); rest = d.slice(2); }
-  else { h = "0" + d[0]; rest = d.slice(1); }                      // e.g. 25 -> 02, push to min
-  let m = rest.slice(0, 2);
-  if (m.length === 1 && m > "5") m = "0" + m;                      // 7 -> 07
-  if (m.length === 2 && +m > 59) m = "59";
-  return m.length ? `${h}:${m}` : `${h}:`;
-}
-
-// Finalize whatever is in the field to a valid "HH:MM" (blank -> "00:00"); used on commit.
-export function normTime(raw) {
-  const m = maskTime(raw).match(/^(\d{1,2}):?(\d{0,2})$/);
-  if (!m) return "00:00";
-  const hh = String(Math.min(23, +m[1])).padStart(2, "0");
-  const mm = (m[2] || "0").padStart(2, "0").slice(0, 2);
-  return `${hh}:${mm}`;
-}
+// maskTime / normTime live in datefield.js (the shared typed date/time entry).
+import { maskTime, normTime, attachDateBoxes, wireTimeBox } from "./datefield.js";
+export { maskTime, normTime, wireTimeBox };
 
 // Offline city autocomplete: wires a text <input> to /api/geocode; calls onPick({name,
 // country, lat, lon, tz}) when a suggestion is chosen.
@@ -128,6 +106,7 @@ export function createControlBar(host, cb) {
   const nodeEl = bar.querySelector("#cb-node"), ayaEl = bar.querySelector("#cb-aya");
   const kgrp = bar.querySelector(".cb-kundali");
   const tzEl = bar.querySelector("#cb-tz");
+  const dateBoxes = attachDateBoxes(dateEl);   // typed Y / M / D in front of the native picker
 
   lat.value = state.get("lat").toFixed(4);
   lon.value = state.get("lon").toFixed(4);
@@ -151,11 +130,12 @@ export function createControlBar(host, cb) {
     });
   };
   // Live mask while typing (6 -> "06:" -> minutes), normalize on blur to HH:MM.
-  timeEl.addEventListener("input", () => { timeEl.value = maskTime(timeEl.value); });
+  wireTimeBox(timeEl);
   const inKundali = () => state.get("view") === "kundali";
   const fillTimeFields = (simDate) => {
     const w = state.utcToWall(simDate, state.get("tz"));
     dateEl.value = w.slice(0, 10); timeEl.value = w.slice(11, 16);
+    dateBoxes.sync();
   };
   // Date and Time are INDEPENDENT: set either alone and the blank half fills from the current
   // instant, then the moment is pinned. Sky/Panchang freeze (rate 0) so the field stays accurate;
@@ -166,15 +146,14 @@ export function createControlBar(host, cb) {
     const time = timeEl.value.trim() ? normTime(timeEl.value) : cur.slice(11, 16);
     dateEl.value = date; timeEl.value = time;
     state.setWallTime(`${date}T${time}`);
-    if (!inKundali()) state.set("timeFlowRate", 0);
+    state.set("timeFlowRate", 0);   // an explicitly entered instant must not crawl (any view)
     cb.onTime();
   };
   dateEl.onchange = commitTime;
   timeEl.onchange = commitTime;
   bar.querySelector("#cb-now").onclick = () => {
     state.resetToNow();
-    if (inKundali()) { dateEl.value = ""; timeEl.value = ""; }   // birth fields stay empty
-    else fillTimeFields(state.simTime());                        // populate with the live now
+    fillTimeFields(state.simTime());   // populate with the live now — same behavior in EVERY view
     cb.onNow();
   };
   const fmtBtn = bar.querySelector("#cb-fmt");
@@ -226,6 +205,7 @@ export function createControlBar(host, cb) {
     // restore) and record it as the anchor so the sky clock matches the chart instant.
     setWall(date, time) {
       dateEl.value = date || ""; timeEl.value = time || "";
+      dateBoxes.sync();
       if (date) state.setWallTime(`${date}T${normTime(time || "00:00")}`);
     },
     setNode(v) { if (v) nodeEl.value = v; },
@@ -255,7 +235,7 @@ export function createOverlayBar(host, defs) {
     items.push({ b, views: d.views, sync });
   }
   const applyView = (v) => {
-    bar.hidden = (v === "panchang" || v === "kundali");   // sky-only controls
+    bar.hidden = (v === "panchang" || v === "kundali" || v === "match");   // sky-only controls
     for (const it of items) {
       const ok = !it.views || it.views.includes(v);
       it.b.disabled = !ok;
@@ -265,5 +245,38 @@ export function createOverlayBar(host, defs) {
   state.subscribe("view", applyView);
   applyView(state.get("view"));
   host.appendChild(bar);
+  // Re-read every toggle's get() and re-sync its visual state -- for callers that flip a
+  // toggle back off asynchronously (e.g. point mode timing out with no sensor) after the
+  // click handler that would normally have done it has already returned.
+  bar.refresh = () => { for (const it of items) it.sync(); };
   return bar;
+}
+
+// Two-finger pinch-zoom (touch): tracks pointers on `el`, calls onScale(ratio) as the fingers
+// spread (ratio > 1) or close (< 1). Returns pinching() — drag handlers bail while it's true.
+// Desktop is untouched (a mouse only ever has one pointer).
+export function setupPinch(el, onScale) {
+  const pts = new Map();
+  let lastD = 0;
+  const dist = () => {
+    const [a, b] = [...pts.values()];
+    return Math.hypot(a[0] - b[0], a[1] - b[1]);
+  };
+  el.addEventListener("pointerdown", (e) => {
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 2) lastD = dist();
+  });
+  const drop = (e) => { pts.delete(e.pointerId); lastD = 0; };
+  el.addEventListener("pointerup", drop);
+  el.addEventListener("pointercancel", drop);
+  el.addEventListener("pointermove", (e) => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 2) {
+      const d = dist();
+      if (lastD > 0 && d > 0) onScale(d / lastD);
+      lastD = d;
+    }
+  });
+  return () => pts.size >= 2;
 }

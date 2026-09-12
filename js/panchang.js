@@ -7,6 +7,7 @@
 import * as state from "./state.js";
 import * as i18n from "./i18n.js";
 import { matchDay } from "../src/savedevents.js";
+import { dayGuidance } from "../src/dayguide.js";
 
 // Always-visible kaal captions (Section 9 item 6b) -- what each window is anchored to.
 const KAAL_INFO = {
@@ -50,13 +51,18 @@ function countdown(endIso, nowMs) {
   return h > 0 ? `${h}h ${mi}m` : `${mi}m ${d - mi * 60}s`;
 }
 
-export function createPanchangTab(container) {
+// hooks.onShiftDay(ymd): the ◀ ▶ day arrows under the hero ask the app to show that date.
+export function createPanchangTab(container, hooks = {}) {
   container.innerHTML = `
     <div class="pj-banner" hidden></div>
     <div class="pj-predawn" hidden></div>
     <div class="pj-hero">
       <div class="pj-hero-main"></div>
       <div class="pj-hero-sub"></div>
+      <div class="pj-daynav">
+        <button type="button" class="pj-day-prev" title="previous day">◀ prev day</button>
+        <button type="button" class="pj-day-next" title="next day">next day ▶</button>
+      </div>
     </div>
     <div class="pj-festivals"></div>
     <div class="pj-saved-line"></div>
@@ -71,6 +77,15 @@ export function createPanchangTab(container) {
   const timeline = $(".pj-timeline"), foot = $(".pj-foot");
 
   let data = null;
+  // Step a civil day either way from the day on show (ISO date arithmetic, zone-free).
+  const shift = (delta) => {
+    if (!data || !hooks.onShiftDay) return;
+    const d = new Date(`${data.date_local}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + delta);
+    hooks.onShiftDay(d.toISOString().slice(0, 10));
+  };
+  container.querySelector(".pj-day-prev").onclick = () => shift(-1);
+  container.querySelector(".pj-day-next").onclick = () => shift(+1);
   let savedEvents = [];
 
   // --- card helpers --------------------------------------------------------
@@ -105,6 +120,25 @@ export function createPanchangTab(container) {
       return `<span class="pj-badge ${f.disputed ? "disputed" : ""}" title="${f.note || ""}">${f.name}<small> · ${f.kaal}${win}</small></span>`;
     }).join("") || `<span class="pj-none">no festivals today</span>`;
 
+    // Grahana badges sit with the festivals: an eclipse IS the day's event. "visible here"
+    // is the part that depends on where you are — the contact times do not.
+    festEl.innerHTML += (d.grahana || []).map((g) => {
+      // *_local: the same instants written in the viewer's zone (see buildpanchang.js).
+      const span = g.kind === "lunar"
+        ? `${clock(g.partial_begin_local || g.penumbral_begin_local)}–${clock(g.partial_end_local || g.penumbral_end_local)}`
+        : `${clock((g.local && g.local.first_contact_local) || g.begin_local)}–${clock((g.local && g.local.fourth_contact_local) || g.end_local)}`;
+      const seen = g.visible_here === false ? " · not visible here" : "";
+      // How much of the disc is covered, for THIS location. For a lunar eclipse that is a
+      // geocentric fact (the Moon is in Earth's shadow for everyone); for a solar one it is
+      // genuinely local, and reads 0% where the shadow misses you.
+      const pct = g.obscuration == null ? ""
+        : ` · ${g.obscuration >= 0.995 ? 100 : +(g.obscuration * 100).toFixed(g.obscuration < 0.1 ? 1 : 0)}%`;
+      const tip = g.kind === "lunar"
+        ? `${g.type} lunar eclipse · umbral magnitude ${g.umbral_magnitude.toFixed(3)}`
+        : `${g.type} solar eclipse${g.local ? ` · magnitude ${g.local.magnitude.toFixed(3)}` : ""}`;
+      return `<span class="pj-badge grahana" title="${tip}">${i18n.tr(g.grahana)}<small> · ${i18n.tr(g.type)}${pct} · ${span}${seen}</small></span>`;
+    }).join("");
+
     // Saved events whose tithi+masa recurs today (kept separate from festivals).
     const hits = matchDay(d.masa.name, d.tithi_at_sunrise.number, savedEvents);
     savedEl.innerHTML = hits.map((e) => `<span class="pj-saved-badge" title="saved event">★ ${e.label}</span>`).join("");
@@ -133,10 +167,50 @@ export function createPanchangTab(container) {
         ${windowRow("Aparahna", d.muhurta.aparahna, KAAL_INFO.aparahna)}
         ${windowRow("Pradosha", d.muhurta.pradosha, KAAL_INFO.pradosha, within(d.muhurta.pradosha, nowMs))}
         ${windowRow("Nishita", d.muhurta.nishita, KAAL_INFO.nishita, within(d.muhurta.nishita, nowMs))}</div>`,
+      // Phone alarms (Android app only): one-tap Clock-app alarms at tomorrow's computed times.
+      ...(globalThis.KhagolAndroid?.setClockAlarm ? [
+        `<div class="pj-card pj-card-wide"><div class="pj-card-t">⏰ Phone alarms — tomorrow</div>
+          <div class="pj-alarm-row">
+            <button class="pj-alarm" type="button" data-kind="sunrise">Sunrise</button>
+            <button class="pj-alarm" type="button" data-kind="brahma">Brahma muhurta</button>
+          </div>
+          <div class="pj-alarm-hint">Sets a one-time alarm in your Clock app at tomorrow's time for this
+          location (manage or delete it there).</div></div>`] : []),
+      guidanceCardHtml(d),
     ].join("");
+    grid.querySelectorAll(".pj-alarm").forEach((b) => {
+      b.onclick = () => hooks.onSetAlarm && hooks.onSetAlarm(b.dataset.kind, b);
+    });
 
     renderTimeline(nowMs);
     foot.innerHTML = `Ayanamsa: <b>${d.ayanamsa}</b> (${d.ayanamsa_deg.toFixed(3)}°) · drik (computed), South-Indian Amanta · times in ${d.location.tz}`;
+  }
+
+  // "Today's guidance" (Section B): tithi-group/vara/yoga/karana significance, plus personal
+  // tara-bala/chandra-bala when a kundali has been cast (localStorage["kundali.janma"]).
+  function guidanceCardHtml(d) {
+    let janma = null;
+    try { janma = JSON.parse(localStorage.getItem("kundali.janma") || "null"); } catch { janma = null; }
+    const g = dayGuidance(
+      d.tithi_at_sunrise.number - 1, d.vara_index, d.yoga.number - 1, d.karana.name,
+      d.nakshatra_at_sunrise.number - 1, janma,
+    );
+    const personalHtml = g.personal
+      ? `<div class="pj-guide-personal">
+          <div class="pj-guide-t">For you (from your janma nakshatra)</div>
+          <div class="pj-guide-row">Tara-bala: <b>${i18n.tr(g.personal.tara.name)}</b> (#${g.personal.tara.count}) — ${g.personal.tara.text}</div>
+          <div class="pj-guide-row">Chandra-bala: house ${g.personal.chandra_bala.house} — ${g.personal.chandra_bala.text}</div>
+        </div>`
+      : `<div class="pj-guide-personal kj-muted">Cast your Kundali once to see personal tara-bala here.</div>`;
+    return `<div class="pj-card pj-card-wide">
+      <div class="pj-card-t">Today's guidance</div>
+      <div class="pj-guide-row">Tithi: <b>${i18n.tr(g.tithi.group)}</b> — ${g.tithi.text}</div>
+      <div class="pj-guide-row">Vara: ${g.vara.text}</div>
+      <div class="pj-guide-row">Yoga: <b>${i18n.tr(g.yoga.name)}</b> — ${g.yoga.text}</div>
+      <div class="pj-guide-row">Karana: <b>${i18n.tr(g.karana.name)}</b> — ${g.karana.text}</div>
+      ${personalHtml}
+      <div class="kj-foot">${g.disclaimer}</div>
+    </div>`;
   }
 
   // Day timeline strip: choghadiya tiles + hora lords + kalam overlays + now cursor.

@@ -4,7 +4,7 @@
 //   { id, label, lat, lon, zone, wall, masa, paksha, tithi_name, tithi_n }
 //   wall = "YYYY-MM-DDTHH:MM" (the saved local time); tithi_n = 1..30 within the amanta masa.
 
-const B = globalThis.browser ?? globalThis.chrome;
+import { B } from "./storage-shim.js";
 const KEY = "savedEvents";
 
 export async function listEvents() {

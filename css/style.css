@@ -26,47 +26,9 @@ html, body {
 .view-container[hidden] { display: none; }
 .view-container canvas { display: block; }
 
-/* All three top bars live in one fixed flex column, so the browser stacks them by flow and
-   they can never overlap, however many rows each wraps to (narrow/mobile). The container is
-   click-through; each bar re-enables pointer events. */
-#top-bars {
-  position: fixed;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 12;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  max-width: 100vw;
-  pointer-events: none;
-}
-#top-bars > div { display: flex; justify-content: center; max-width: 100%; }
-#top-bars { transition: transform .22s ease, opacity .22s ease; }
-
-/* Top-middle tab: click to hide/show the menus; hover to peek when hidden. */
-#bars-handle {
-  position: fixed; top: 0; left: 50%; transform: translateX(-50%);
-  z-index: 13; pointer-events: auto; cursor: pointer;
-  background: rgba(18, 22, 40, 0.82); color: #aab3d6;
-  border: 1px solid rgba(120, 140, 200, 0.30); border-top: none;
-  border-radius: 0 0 10px 10px; padding: 1px 18px 3px;
-  font-size: 11px; line-height: 1.1;
-  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-}
-#bars-handle:hover { color: #fff; background: rgba(30, 36, 60, 0.95); }
-
-/* Collapsed: slide the bars up out of view (the tab stays). */
-body.bars-hidden #top-bars {
-  transform: translateX(-50%) translateY(calc(-100% - 16px));
-  opacity: 0; pointer-events: none;
-}
-/* Peek: revealed while hovering the tab or the bars (JS toggles .bars-peek). */
-body.bars-hidden.bars-peek #top-bars {
-  transform: translateX(-50%) translateY(0);
-  opacity: 1; pointer-events: auto;
-}
+/* #top-bars is a hidden staging area: main.js builds the view/control/overlay bars into it,
+   then mobileui.js relocates their controls into the compact shell's strip and sheets. */
+#top-bars { display: none; }
 
 .view-bar {
   display: flex;
@@ -183,23 +145,17 @@ body.bars-hidden.bars-peek #top-bars {
 .cb-note { color: var(--muted); font-size: 10px; align-self: center; }
 .cb-kundali { border-left: 1px solid #2a3552; padding-left: 10px; }
 
-.hint {
-  position: fixed;
-  bottom: 10px;
-  left: 12px;
-  max-width: min(90vw, 560px);
-  line-height: 1.4;
-  font-size: 12px;
-  color: var(--muted);
-  opacity: 0.75;
-  pointer-events: none;
-}
 
 .toast {
   position: fixed;
   bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
+  /* left:50% alone caps the box at half the viewport, wrapping longer text into a tall
+     one-word-per-line column — size to the text instead, capped sanely. */
+  width: max-content;
+  max-width: min(86vw, 480px);
+  text-align: center;
   background: var(--panel);
   color: var(--fg);
   padding: 8px 14px;
@@ -278,8 +234,6 @@ body.bars-hidden.bars-peek #top-bars {
 .deeptime-panel .dt-btn:hover { background: #1a2440; }
 .deeptime-panel .dt-btn.active { border-color: #f0c060; color: #f0c060; }
 .deeptime-panel .dt-speed { color: #f0c060; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 86px; }
-/* The bar sits where the hint line is, so hide the hint while it's open. */
-body.deeptime-open .hint { display: none; }
 .set-reset { background: #243152; color: var(--fg); border: 1px solid #2a3552; border-radius: 6px; padding: 6px; cursor: pointer; font-size: 12px; margin-top: 2px; }
 .set-reset:hover { border-color: var(--accent); }
 .set-note { color: var(--muted); font-size: 10px; line-height: 1.4; }
@@ -298,7 +252,7 @@ body.deeptime-open .hint { display: none; }
 /* Kundali print / PDF: show only the charts + interpretation, drop all chrome. */
 @media print {
   body { background: #fff; color: #000; }
-  .view-bar, .control-bar, .overlay-bar, .hud, .hint, .toast, .search-box,
+  .view-bar, .control-bar, .overlay-bar, .hud, .toast, .search-box,
   .settings-gear, .settings-panel, .infopanel, .offline-banner { display: none !important; }
   #kundali-container { position: static !important; padding: 0 !important; }
   .kj-interp, .kc-svg { color: #000; }
@@ -323,7 +277,8 @@ body.deeptime-open .hint { display: none; }
 .search-box input::placeholder { color: var(--muted); }
 
 /* --- Panchang dashboard (Phase 9) --------------------------------------- */
-.panel-view { overflow-y: auto; padding: var(--panel-top, 96px) 16px 28px; }
+.panel-view { overflow-y: auto; padding: var(--panel-top, 96px) 16px 28px;
+  touch-action: pan-y; -webkit-overflow-scrolling: touch; }   /* .view-container sets none for canvases */
 .panel-view[hidden] { display: none; }
 
 .pj-subtabs { display: flex; gap: 4px; justify-content: center; margin-bottom: 14px; }
@@ -346,6 +301,8 @@ body.deeptime-open .hint { display: none; }
 .pj-hero { text-align: center; margin-bottom: 12px; }
 .pj-hero-main { font-size: 22px; font-weight: 700; color: var(--accent); }
 .pj-hero-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+.pj-daynav { display: flex; justify-content: center; gap: 10px; margin-top: 8px; }
+.pj-daynav button { background: var(--panel); color: var(--fg); border: 1px solid #2a3552; border-radius: 8px; padding: 4px 12px; cursor: pointer; font-size: 12px; min-height: 32px; }
 
 .pj-festivals { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 16px; }
 .pj-badge {
@@ -354,6 +311,9 @@ body.deeptime-open .hint { display: none; }
 }
 .pj-badge small { color: #b89850; }
 .pj-badge.disputed { border-style: dashed; }
+/* Grahana reads as its own kind of day-event: the copper of an eclipsed Moon, not festival gold. */
+.pj-badge.grahana { background: #2a1210; color: #f0a080; border-color: #a05038; }
+.pj-badge.grahana small { color: #c08068; }
 .pj-none { color: var(--muted); font-size: 12px; }
 
 /* Saved events (user date/location anchors) -- cyan, distinct from the gold festivals. */
@@ -390,6 +350,11 @@ body.deeptime-open .hint { display: none; }
 .pj-krow.active { background: rgba(224, 60, 60, 0.16); border-radius: 6px; }
 .pj-krow.active .pj-kname { color: #ff8a6a; font-weight: 600; }
 
+.pj-guide-row { font-size: 13px; color: #aab4cc; padding: 3px 0; line-height: 1.4; }
+.pj-guide-row b { color: var(--fg); }
+.pj-guide-personal { margin-top: 8px; padding-top: 8px; border-top: 1px solid #232d48; }
+.pj-guide-t { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 3px; }
+
 .pj-timeline-wrap { margin: 18px 0 8px; }
 .pj-timeline-title { font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
 .pj-timeline { position: relative; height: 62px; background: #12182c; border-radius: 8px; overflow: hidden; }
@@ -411,9 +376,16 @@ body.deeptime-open .hint { display: none; }
 .pj-skeleton { height: 70px; background: linear-gradient(90deg, #1a2138, #232d48, #1a2138); border-radius: 10px; }
 
 /* --- Month calendar ----------------------------------------------------- */
-.cal-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 12px; }
-.cal-nav button { background: var(--panel); color: var(--fg); border: 1px solid #2a3552; border-radius: 8px; padding: 4px 12px; cursor: pointer; }
-.cal-title { font-size: 16px; font-weight: 600; min-width: 160px; text-align: center; }
+/* Month navigation: « ◀ [month ▾] [year] ▶ » · Today. The month select and typed year
+   reach any month in one gesture; the arrows page a month (◀ ▶) or a year (« ») at a time. */
+.cal-nav { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.cal-nav button { background: var(--panel); color: var(--fg); border: 1px solid #2a3552; border-radius: 8px; padding: 4px 12px; cursor: pointer; min-height: 36px; }
+.cal-nav select, .cal-nav input {
+  background: #0e1424; color: var(--fg); border: 1px solid #2a3552; border-radius: 8px;
+  padding: 4px 8px; font-size: 16px; font-weight: 600; min-height: 36px;
+}
+.cal-nav input.cal-year { width: 84px; box-sizing: border-box; padding: 4px 6px; text-align: center; }
+.cal-nav .cal-today { font-size: 12px; margin-left: 4px; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; max-width: 1000px; margin: 0 auto; }
 .cal-h { text-align: center; font-size: 11px; color: var(--muted); padding: 4px 0; }
 .cal-cell { background: var(--panel); border: 1px solid #232d48; border-radius: 7px; min-height: 78px; padding: 5px 6px; cursor: pointer; overflow: hidden; }
@@ -425,6 +397,9 @@ body.deeptime-open .hint { display: none; }
 .cal-dom { font-size: 14px; font-weight: 600; }
 .cal-tithi { font-size: 10.5px; color: #aab4cc; }
 .cal-nak { font-size: 10px; color: var(--muted); }
+/* Grahana in the month grid: the copper of an eclipsed Moon, dimmed when it misses this place. */
+.cal-grahana { display: block; font-size: 9.5px; color: #f0a080; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-grahana.unseen { color: #8a6255; }
 .cal-fest { display: block; font-size: 9.5px; color: var(--accent); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-loading { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 30px; }
 
@@ -479,3 +454,310 @@ body.deeptime-open .hint { display: none; }
 .kj-dasha tr.cur td { color: var(--accent); font-weight: 600; }
 .kj-foot { font-size: 11.5px; color: var(--muted); text-align: center; max-width: 640px; margin: 12px auto 0; }
 .kj-loading { text-align: center; color: var(--muted); padding: 30px; }
+
+/* --- Match / Kundali Milan (Phase C) ------------------------------------- */
+.mj-pane { max-width: 900px; margin: 0 auto; }
+.mj-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.mj-person { border: 1px solid #232d48; border-radius: 10px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 6px; }
+.mj-person legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
+.mj-person label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); }
+.mj-person input { background: var(--panel); border: 1px solid #232d48; border-radius: 6px;
+  color: var(--fg); padding: 5px 8px; font: inherit; }
+.mj-go { display: block; margin: 0 auto 14px; background: var(--accent); color: #0a0a0a;
+  border: none; border-radius: 8px; padding: 9px 22px; font-weight: 600; cursor: pointer; }
+@media (max-width: 700px) {
+  .mj-form { grid-template-columns: 1fr; }
+}
+
+/* Touch / narrow screens: scrollable view bar, bigger tap targets for the relocated
+   control/overlay bars. */
+@media (max-width: 700px) {
+  .view-bar { overflow-x: auto; max-width: calc(100vw - 12px); -webkit-overflow-scrolling: touch; }
+  .view-bar button { padding: 8px 12px; white-space: nowrap; }
+  .overlay-bar button { padding: 7px 10px; }
+  .control-bar input, .control-bar select, .control-bar button { min-height: 32px; }
+}
+
+/* Saved-panel calendar export card */
+.se-export { margin-top: 14px; padding: 10px 12px; background: rgba(20, 26, 46, 0.6);
+  border: 1px solid rgba(120, 140, 200, 0.22); border-radius: 9px;
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.se-export[hidden] { display: none; }
+.se-x-title { flex-basis: 100%; font-weight: 600; color: #f0c060; font-size: 13.5px; }
+.se-x-opt { display: flex; gap: 5px; align-items: center; font-size: 13px; color: var(--fg); }
+.se-x-opt input[type="number"] { width: 74px; }
+/* A sub-option of the checkbox before it (e.g. "only if visible here" under Eclipses):
+   smaller and muted so it reads as a qualifier, and greyed out when its parent is off. */
+.se-x-opt.se-x-sub { font-size: 11.5px; color: var(--muted); margin-left: 4px; }
+.se-x-opt.se-x-sub:has(input:disabled) { opacity: 0.45; }
+#sx-go { padding: 5px 14px; }
+.se-x-hint { flex-basis: 100%; font-size: 11.5px; color: var(--muted); }
+
+/* Point-mode guidance chip (arrow toward the searched object) */
+#point-guide { position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%);
+  display: flex; gap: 9px; align-items: center; padding: 8px 14px; border-radius: 10px;
+  background: rgba(20, 26, 46, 0.88); border: 1px solid rgba(224, 169, 58, 0.55);
+  color: #f0c060; font-size: 14px; z-index: 30; pointer-events: none; }
+#point-guide[hidden] { display: none; }
+.pg-arrow { display: inline-block; font-size: 18px; line-height: 1; }
+
+/* Phone-alarms card (Android app) */
+.pj-alarm-row { display: flex; gap: 10px; margin: 6px 0; }
+.pj-alarm { padding: 6px 14px; }
+.pj-alarm-hint { font-size: 11.5px; color: var(--muted); }
+
+/* On-screen time-lapse controls (◀ live ▶) — same idiom as the deep-time panel */
+#tl-panel {
+  position: fixed; right: 14px; bottom: 96px; z-index: 22;
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(14, 18, 34, 0.88); border: 1px solid rgba(120, 140, 200, 0.3);
+  border-radius: 10px; padding: 4px 8px;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+#tl-panel[hidden] { display: none; }
+#tl-panel .dt-btn {
+  background: #12182c; color: var(--fg); border: 1px solid #2a3552;
+  border-radius: 7px; padding: 4px 10px; cursor: pointer; font-size: 13px;
+}
+#tl-panel .dt-btn.active { border-color: #f0c060; color: #f0c060; }
+#tl-panel .tl-chip {
+  background: none; border: none; color: #f0c060;
+  font-size: 12px; min-width: 64px; text-align: center; padding: 4px 4px;
+}
+#tl-panel .tl-now {
+  background: rgba(224, 169, 58, 0.18); border: 1px solid var(--accent); border-radius: 7px;
+  color: var(--accent); font-size: 12.5px; font-weight: 600; padding: 4px 10px; cursor: pointer;
+}
+#tl-panel .tl-now[hidden] { display: none; }
+
+/* ============================ COMPACT SHELL (Phase 11) ==============================
+   The only shell, on every target (body.mobile is set in app.html; mobileui.js builds this).
+   The staged bars are relocated: control bar -> "Place & time" sheet, overlay bar -> "Sky
+   layers" sheet, search box + settings gear -> top strip. Everything else is repositioning. */
+
+/* --- hide-menus handle -- tap to hide/show the strip + bottom nav together --- */
+#m-bars-handle {
+  position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+  z-index: 30; pointer-events: auto; cursor: pointer;
+  background: transparent; border: none; box-shadow: none;
+  color: var(--accent);   /* distinct gold arrow, no background box to cover the strip under it */
+  padding: 2px 12px 7px;  /* small glyph, but the padding keeps a comfortable invisible tap zone */
+  font-size: 11px; line-height: 1; min-height: 0;
+}
+#m-bars-handle:active { color: #fff; }
+#m-strip, #m-search-row, #m-nav { transition: transform .22s ease, opacity .22s ease; }
+/* App chrome is not prose: a long press on a tab, a chip or a canvas must not start a text
+   selection (Android showed Copy / Select all over the bottom nav). Inputs keep selection. */
+#m-strip, #m-nav, .m-sheet-title, .m-sheet-grip, .view-container canvas, .deeptime-panel, #tl-panel,
+.hud, .pj-subtabs, .pj-daynav, .overlay-bar, .infopanel .ip-title,
+button { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body.mobile.bars-hidden #m-strip, body.mobile.bars-hidden #m-search-row {
+  transform: translateY(-100%); opacity: 0; pointer-events: none;
+}
+body.mobile.bars-hidden #m-nav { transform: translateY(100%); opacity: 0; pointer-events: none; }
+body.mobile.bars-hidden .panel-view { padding-top: 20px !important; padding-bottom: 20px !important; }
+/* The bottom row (time-lapse pill left, HUD right, deep-time bar across) normally clears the
+   nav. With the menus hidden that space is free, so they slide down into it — maximising the
+   sky — and ride back up when the nav returns. */
+body.mobile #tl-panel, body.mobile .hud, body.mobile .deeptime-panel { transition: bottom .22s ease; }
+body.mobile.bars-hidden #tl-panel,
+body.mobile.bars-hidden .deeptime-panel { bottom: calc(8px + env(safe-area-inset-bottom)); }
+body.mobile.bars-hidden .hud { bottom: calc(10px + env(safe-area-inset-bottom)); }
+
+/* --- top status strip --- */
+#m-strip {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 26;
+  display: flex; align-items: center; gap: 8px;
+  padding: calc(6px + env(safe-area-inset-top)) 10px 6px;
+  background: rgba(13, 17, 32, 0.92); border-bottom: 1px solid #232d48;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+#m-strip button { background: none; border: none; color: var(--fg); font-size: 18px; padding: 6px; }
+#m-summary {
+  flex: 1; display: flex; justify-content: center; gap: 14px; min-width: 0;
+  font-size: 14px !important; color: var(--fg);
+}
+#m-summary .m-place { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
+#m-summary .m-time { color: var(--accent); white-space: nowrap; }
+body.mobile .settings-gear { position: static; width: 38px; height: 38px; font-size: 18px; }
+
+/* --- search row (relocated .search-box) --- */
+#m-search-row {
+  position: fixed; top: calc(44px + env(safe-area-inset-top)); left: 0; right: 0; z-index: 25;
+  padding: 8px 10px; background: rgba(13, 17, 32, 0.94); border-bottom: 1px solid #232d48;
+}
+#m-search-row[hidden] { display: none; }
+body.mobile .search-box { position: static; }
+body.mobile .search-box input { width: 100%; font-size: 16px; padding: 10px 12px; }
+#m-suggest { display: flex; flex-direction: column; gap: 2px; max-height: 42vh; overflow-y: auto; margin-top: 6px; }
+#m-suggest button {
+  text-align: left; background: #12182c; border: 1px solid #232d48; border-radius: 8px;
+  color: var(--fg); font-size: 15px; padding: 10px 12px; min-height: 42px;
+}
+
+/* --- bottom navigation --- */
+#m-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 26;
+  display: flex; justify-content: space-around;
+  padding: 4px 2px calc(4px + env(safe-area-inset-bottom));
+  background: rgba(13, 17, 32, 0.96); border-top: 1px solid #232d48;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+#m-nav button {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  background: none; border: none; color: var(--muted); padding: 5px 2px; min-height: 48px;
+}
+#m-nav .m-nav-ic { font-size: 19px; line-height: 1.15; }
+#m-nav .m-nav-lb { font-size: 10.5px; }
+#m-nav button.active { color: var(--accent); background: rgba(224, 169, 58, 0.16); border-radius: 12px; }
+#m-nav button.active .m-nav-lb { font-weight: 700; }
+
+/* --- bottom sheets --- */
+.m-sheet-back {
+  position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.45);
+  opacity: 0; transition: opacity 0.18s ease;
+}
+.m-sheet-back.open { opacity: 1; }
+.m-sheet-back[hidden] { display: none; }
+.m-sheet {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: #121a30; border-top: 1px solid #2a3552; border-radius: 16px 16px 0 0;
+  padding: 6px clamp(10px, 3vw, 16px) calc(12px + env(safe-area-inset-bottom));
+  max-height: 72vh;                      /* fallback */
+  max-height: min(78dvh, calc(100dvh - 56px));   /* tracks the keyboard-resized viewport */
+  overflow-y: auto; touch-action: pan-y;
+  transform: translateY(24px); transition: transform 0.18s ease;
+}
+.m-sheet-back.open .m-sheet { transform: translateY(0); }
+.m-sheet-grip { width: 36px; height: 4px; border-radius: 2px; background: #3a4a72; margin: 4px auto 8px; }
+.m-sheet-title { text-align: center; color: var(--accent); font-size: 13.5px; font-weight: 600; margin-bottom: 10px; }
+
+/* control bar goes vertical inside its sheet, with finger-sized fields */
+body.mobile .control-bar {
+  position: static; max-width: none; background: none; padding: 0;
+  flex-direction: column; align-items: stretch; gap: 12px;
+}
+body.mobile .control-bar label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); min-width: 0; }
+body.mobile .control-bar input, body.mobile .control-bar select {
+  font-size: 16px; padding: 9px 8px; min-height: 42px; width: 100%; min-width: 0;
+}
+body.mobile .control-bar input#cb-time { width: 100%; }
+body.mobile .control-bar button { min-height: 42px; padding: 8px 16px; font-size: 14px; }
+body.mobile .control-bar .cb-tz { font-size: 12px; }
+
+/* overlay toggles become a chip grid inside the layers sheet */
+body.mobile .overlay-bar {
+  position: static; background: none; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 9px; justify-content: flex-start;
+}
+body.mobile .overlay-bar[hidden] { display: none; }
+body.mobile .overlay-bar button {
+  min-height: 42px; padding: 9px 15px; font-size: 14px; border-radius: 21px;
+}
+
+/* Layers: an ACTION that opens a sheet, not another view tab — separated by a divider,
+   gold-tinted with an up-chevron, and lit while its sheet is open. */
+#m-nav #m-nav-layers { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  background: rgba(224, 169, 58, 0.10); border: none; border-left: 1px solid #2a3552;
+  border-radius: 10px 0 0 10px; color: var(--accent); padding: 5px 10px; min-height: 48px; }
+#m-nav #m-nav-layers .m-nav-lb { color: var(--accent); opacity: 0.85; }
+#m-nav #m-nav-layers.open { background: rgba(224, 169, 58, 0.28); }
+#m-nav #m-nav-layers[hidden] { display: none; }
+
+/* --- one shared row above the nav: time-lapse pill (left) + HUD (right) --- */
+body.mobile .hud {
+  bottom: calc(62px + env(safe-area-inset-bottom)); right: 8px; font-size: 12px;
+  max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+body.mobile #tl-panel { left: 8px; right: auto; bottom: calc(60px + env(safe-area-inset-bottom)); }
+body.mobile .deeptime-panel {
+  /* deep mode replaces the time-lapse pill — same slot, one control surface */
+  bottom: calc(60px + env(safe-area-inset-bottom)); width: 96vw; z-index: 24;
+  flex-wrap: wrap; row-gap: 6px;
+}
+body.mobile .deeptime-panel .dt-slider { min-width: 58vw; }
+body.mobile .deeptime-panel .dt-btn { min-height: 40px; padding: 6px 12px; }
+body.mobile .toast { top: calc(50px + env(safe-area-inset-top)); bottom: auto; z-index: 45; }
+body.mobile .infopanel {
+  top: auto; right: 8px; left: 8px; width: auto;
+  bottom: calc(64px + env(safe-area-inset-bottom));
+  max-height: 42vh; overflow-y: auto; touch-action: pan-y;
+}
+body.mobile .settings-panel {
+  right: 8px; left: 8px; bottom: calc(70px + env(safe-area-inset-bottom)); top: auto;
+  max-height: 65vh; overflow-y: auto; touch-action: pan-y;
+}
+body.mobile .settings-panel:not([hidden]) {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; align-items: end;
+}
+body.mobile .settings-panel .set-hd, body.mobile .settings-panel .set-actions,
+body.mobile .settings-panel .set-row, body.mobile .settings-panel .set-reset,
+body.mobile .settings-panel .set-note { grid-column: 1 / -1; }
+body.mobile .settings-panel .set-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+body.mobile .settings-panel .set-actions .set-act { flex: 1 1 45%; }
+body.mobile .settings-panel label { font-size: 13px; }
+body.mobile .settings-panel select, body.mobile .settings-panel .set-act { min-height: 40px; font-size: 14px; }
+body.mobile #point-guide { top: 34%; }
+
+/* panels: clear the strip at the top and the nav at the bottom */
+body.mobile .panel-view {
+  padding-top: calc(56px + env(safe-area-inset-top)) !important;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+body.mobile .pj-sub { min-height: 42px; padding: 8px 20px; font-size: 14px; }
+
+/* Sheet form geometry: City gets a full row (it holds names like 'Secunderabad, India');
+   Time is just HH:MM so it shares a row; the 12/24h knob and the Node/Ayanamsa group move to
+   Settings on mobile (they're advanced, rarely-touched options duplicating the gear). */
+/* Location row: City takes the lion's share, Lat/Lon compact, Here rides along — one dynamic
+   row that wraps only when the screen is truly too narrow. Time is just HH:MM: cap its width. */
+body.mobile .control-bar .cb-grp { display: flex; flex-wrap: wrap; gap: clamp(6px, 2vw, 10px); align-items: end; }
+body.mobile .control-bar label:has(#cb-city) { flex: 3 1 120px; }
+.m-city-head { display: flex; justify-content: flex-start; align-items: baseline; gap: 10px; min-width: 0; overflow: hidden; }
+body.mobile #cb-tz { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.mobile #cb-tz::before { content: "tz: "; }
+body.mobile .control-bar label:has(#cb-lat), body.mobile .control-bar label:has(#cb-lon) { flex: 0 1 84px; max-width: 92px; }
+body.mobile .control-bar #cb-here { flex: 0 0 auto; padding: 8px 10px; font-size: 13px; }
+body.mobile .control-bar label:has(#cb-date) { flex: 2 1 170px; }
+body.mobile .control-bar label:has(#cb-time) { flex: 0 1 88px; }
+body.mobile .control-bar #cb-fmt { display: none; }
+body.mobile .control-bar .cb-kundali { display: none; }
+
+/* ★ Saved menu: in-flow inside the sheet (an absolute dropdown gets clipped by the sheet's
+   scroll area — the user had to drag to find it) */
+body.mobile .cb-saved-menu {
+  position: static; min-width: 0; width: 100%; max-height: none;
+  box-shadow: none; margin-top: 6px;
+}
+
+/* Startup: the mobile class is applied inline in app.html before first paint, so the desktop
+   bars never flash — and widgets that later relocate stay hidden while still direct body
+   children (search box, gear turn static on mobile and would otherwise flow visibly). */
+body.mobile > .search-box, body.mobile > .settings-gear { display: none; }
+
+/* Typed date entry (datefield.js): the native date input stays in the DOM, hidden, behind
+   Y / M / D boxes and a 📅 button that opens its picker. Used by the control bar, the Match
+   forms and the popup, so a date decades away is typed, not paged to. */
+.df-hidden { position: absolute !important; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; margin: 0; }
+.df-row { position: relative; display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: clamp(4px, 1.5vw, 8px); align-items: stretch; }
+.df-row.df-time { grid-template-columns: 2fr 1fr 1fr 1.6fr auto; }
+.df-row input.df-box { text-align: center; width: 100%; min-width: 0; padding-left: 4px; padding-right: 4px; }
+input.df-bad, .df-row input.df-bad { border-color: #e05a5a !important; color: #ff8a8a; outline-color: #e05a5a; }
+.df-msg { display: block; font-size: 11px; color: #ff8a8a; margin-top: 3px; }
+.df-msg.df-note { color: var(--muted); }
+.df-msg[hidden] { display: none; }   /* display:block above would otherwise beat [hidden] */
+.df-row .df-pick { padding: 0 8px; min-width: 0; font-size: 16px; line-height: 1; }
+.control-bar .df-row input.df-box { font-size: 16px; min-height: 42px; padding: 9px 4px; }
+body.mobile .control-bar .df-row .df-pick { padding: 0 10px; }
+.mj-person .df-row input.df-box { min-height: 34px; }
+
+/* Orrery follow state — visible and dismissible */
+#follow-chip {
+  position: fixed; top: 56px; left: 50%; transform: translateX(-50%); z-index: 21;
+  background: rgba(20, 26, 46, 0.92); border: 1px solid var(--accent); border-radius: 16px;
+  color: var(--accent); font-size: 13px; padding: 6px 14px; cursor: pointer;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+#follow-chip[hidden] { display: none; }
+body.mobile #follow-chip { top: calc(50px + env(safe-area-inset-top)); }

@@ -10,6 +10,14 @@ function stamp(d) {
 }
 
 function download(blob, name) {
+  // Android WebView: blob anchor-downloads don't work; hand base64 to the native bridge,
+  // which writes into the system Downloads collection. Browser/extension path is unchanged.
+  if (globalThis.KhagolAndroid?.savePng) {
+    const r = new FileReader();
+    r.onload = () => globalThis.KhagolAndroid.savePng(name, String(r.result).split(",")[1] || "");
+    r.readAsDataURL(blob);
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = name;

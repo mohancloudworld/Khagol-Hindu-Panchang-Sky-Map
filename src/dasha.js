@@ -1,4 +1,4 @@
-// Vimshottari maha/antar dasha. Year = 365.25 days.
+// Vimshottari maha/antar dasha — ported from app/panchang/dasha.py. Year = 365.25 days.
 import { ymdOfInstant, isoYMD } from "./tz.js";
 
 const LORDS = [["Ketu", 7], ["Venus", 20], ["Sun", 6], ["Moon", 10], ["Mars", 7], ["Rahu", 18], ["Jupiter", 16], ["Saturn", 19], ["Mercury", 17]];

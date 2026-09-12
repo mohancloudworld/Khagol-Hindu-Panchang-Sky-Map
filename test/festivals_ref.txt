@@ -1,0 +1,15 @@
+Ugadi|2026-03-19|False
+Rama Navami|2026-03-26|False
+Akshaya Tritiya|2026-04-20|False
+Guru Purnima|2026-07-29|False
+Krishna Janmashtami|2026-09-04|False
+Vinayaka Chaturthi|2026-09-14|False
+Sharad Navaratri begins|2026-10-11|False
+Vijayadashami|2026-10-20|False
+Naraka Chaturdashi|2026-11-08|False
+Deepavali|2026-11-08|False
+Karwa Chauth|2026-10-29|False
+Karthika Purnima|2026-11-24|False
+Vaikuntha Ekadashi|2026-12-20|False
+Maha Shivaratri|2026-02-15|False
+Holika Dahan|2026-03-02|False

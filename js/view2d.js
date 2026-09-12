@@ -7,11 +7,13 @@
 import * as astro from "./astro.js";
 import * as overlays from "./overlays.js";
 import * as i18n from "./i18n.js";
+import { setupPinch } from "./ui.js";
 
 const PLANET_COLOR = {
   sun: "#ffd24a", moon: "#e8e8d8", mercury: "#b0a08f", venus: "#e8d8a0",
   mars: "#d06a40", jupiter: "#d8b890", saturn: "#d8c890", uranus: "#a0d0d0", neptune: "#6080d0",
 };
+const SUN_RADIUS_KM = 696000, AU_KM = 149597870.7;   // for the eclipsed Sun's true semidiameter
 
 export function createView2D(container) {
   const canvas = document.createElement("canvas");
@@ -335,17 +337,105 @@ export function createView2D(container) {
     ctx.shadowBlur = 0; ctx.shadowColor = "transparent";   // don't bleed the halo into later draws
   }
 
+  // Earth's shadow across the Moon during a lunar eclipse. The Moon sprite is drawn many
+  // times life size, so the umbra is scaled by the same factor (radius and offset both in
+  // units of the Moon's true semidiameter) — the shadow keeps its real proportions against
+  // the disc. Its direction comes from projecting the antisolar point through the same
+  // pipeline as the Moon, so it stays right at any zoom and anywhere in the projection.
+  function drawMoonEclipse(p, b, rad, Hmat, atmosphere) {
+    const ec = b.eclipse; if (!ec) return;
+    const k = rad / ec.moon_sd_deg;                        // px per true degree, sprite-scaled
+    const shadowVec = astro.raDecToVec(ec.shadow_ra_hours * 15, ec.shadow_dec_deg);
+    const w = _world(Hmat, shadowVec[0], shadowVec[1], shadowVec[2]);
+    const [salt, saz] = vecToAltAz(w[0], w[1], w[2]);
+    const q = project(salt, saz, atmosphere);
+    // Fallback (antisolar point clipped at the horizon while the Moon is not): centre the
+    // shadow on the Moon rather than dropping it — a sub-degree placement error at most.
+    let ux = 0, uy = 0;
+    if (q) {
+      const dx = q[0] - p[0], dy = q[1] - p[1], n = Math.hypot(dx, dy);
+      if (n > 1e-6) { ux = dx / n; uy = dy / n; }
+    }
+    const off = ec.separation_deg * k;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, 2 * Math.PI); ctx.clip();   // shadow only on the disc
+    ctx.fillStyle = "rgba(60,44,40,0.45)";                                    // penumbra: slight grey
+    ctx.beginPath();
+    ctx.arc(p[0] + ux * off, p[1] + uy * off, ec.penumbra_radius_deg * k, 0, 2 * Math.PI);
+    ctx.fill();
+    // Umbra: the copper of refracted sunlight, not black. Deeper toward the shadow's centre.
+    const cx = p[0] + ux * off, cy = p[1] + uy * off, ur = ec.umbra_radius_deg * k;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, ur);
+    g.addColorStop(0, "rgba(74,26,14,0.97)");
+    g.addColorStop(0.75, "rgba(96,38,20,0.95)");
+    g.addColorStop(1, "rgba(120,58,34,0.9)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cx, cy, ur, 0, 2 * Math.PI); ctx.fill();
+    ctx.restore();
+  }
+
+  // Solar eclipse: the Sun's disc with the Moon's silhouette across it. Same exaggeration
+  // trick as the lunar shadow, and the same "derive the geometry from the magnitude we
+  // display" rule — magnitude is the fraction of the solar DIAMETER covered, so
+  //   sep = sun_sd + moon_sd - 2 * sun_sd * magnitude
+  // keeps the picture and the number in step. Totality leaves the corona ring behind.
+  function drawSunEclipse(p, b, rad, Hmat, atmosphere) {
+    const ec = b.eclipse;
+    const sunSd = Math.asin(SUN_RADIUS_KM / (b.distance_au * AU_KM)) * 180 / Math.PI;
+    const moonSd = sunSd * ec.diameter_ratio;
+    const sep = Math.max(0, sunSd + moonSd - 2 * sunSd * ec.magnitude);
+    const k = rad / sunSd;
+
+    let ux = 1, uy = 0;
+    const moon = sky && sky.bodies.find((x) => x.id === "moon");
+    if (moon) {
+      const mv = bodyVec(moon), mw = _world(Hmat, mv[0], mv[1], mv[2]);
+      const [malt, maz] = vecToAltAz(mw[0], mw[1], mw[2]);
+      const q = project(malt, maz, atmosphere);
+      if (q) {
+        const dx = q[0] - p[0], dy = q[1] - p[1], n = Math.hypot(dx, dy);
+        if (n > 1e-6) { ux = dx / n; uy = dy / n; }
+      }
+    }
+    // Corona, once the photosphere is essentially gone.
+    if (ec.obscuration > 0.999) {
+      const cg = ctx.createRadialGradient(p[0], p[1], rad, p[0], p[1], rad * 2.6);
+      cg.addColorStop(0, "rgba(255,248,220,0.55)");
+      cg.addColorStop(1, "rgba(255,248,220,0)");
+      ctx.fillStyle = cg;
+      ctx.beginPath(); ctx.arc(p[0], p[1], rad * 2.6, 0, 2 * Math.PI); ctx.fill();
+    }
+    ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, 2 * Math.PI);
+    ctx.fillStyle = PLANET_COLOR.sun; ctx.fill();
+    ctx.save();
+    ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, 2 * Math.PI); ctx.clip();
+    ctx.fillStyle = "#0a0a12";
+    ctx.beginPath();
+    ctx.arc(p[0] + ux * sep * k, p[1] + uy * sep * k, moonSd * k, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.restore();
+  }
+
   function drawMoon(p, b, rad) {
+    // Same construction as the 3D moon texture: unlit disc, then the lit region as a half-disc
+    // arc closed by the elliptical terminator (semi-minor shrinks with phase; winding flips at
+    // half). The old evenodd + right-half-rect hack produced wedge artifacts at gibbous phases.
     const k = (b.phase_percent ?? 50) / 100;
-    ctx.save(); ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, 2 * Math.PI); ctx.clip();
-    ctx.fillStyle = "#0a0a12"; ctx.fillRect(p[0] - rad, p[1] - rad, 2 * rad, 2 * rad);
+    const waxing = b.phase_waxing !== false;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, 2 * Math.PI);
+    ctx.fillStyle = "#0a0a12"; ctx.fill();
     ctx.fillStyle = "#e8e8d8";
     ctx.beginPath();
     const x = rad * (1 - 2 * k);
-    ctx.ellipse(p[0], p[1], Math.abs(x), rad, 0, 0, 2 * Math.PI);
-    if (k > 0.5) { ctx.rect(p[0] - rad, p[1] - rad, 2 * rad, 2 * rad); }
-    ctx.fill("evenodd");
-    ctx.fillRect(p[0], p[1] - rad, rad, 2 * rad);     // lit right half (waxing approx)
+    if (waxing) {
+      ctx.arc(p[0], p[1], rad, -Math.PI / 2, Math.PI / 2, false);
+      ctx.ellipse(p[0], p[1], Math.abs(x), rad, 0, Math.PI / 2, -Math.PI / 2, k < 0.5);
+    } else {
+      ctx.arc(p[0], p[1], rad, Math.PI / 2, -Math.PI / 2, false);
+      ctx.ellipse(p[0], p[1], Math.abs(x), rad, 0, -Math.PI / 2, Math.PI / 2, k < 0.5);
+    }
+    ctx.fill();
     ctx.restore();
     ctx.strokeStyle = "#888"; ctx.lineWidth = 0.5;
     ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, 2 * Math.PI); ctx.stroke();
@@ -373,7 +463,8 @@ export function createView2D(container) {
       const p = project(alt, az, atmosphere); if (!p) continue;
       ctx.globalAlpha = (!atmosphere && alt < 0) ? 0.6 : 1;     // dim sub-horizon in space view
       const rad = (b.id === "sun" || b.id === "moon" ? 8 : 4) * gz;
-      if (b.id === "moon") drawMoon(p, b, rad);
+      if (b.id === "moon") { drawMoon(p, b, rad); drawMoonEclipse(p, b, rad, Hmat, atmosphere); }
+      else if (b.id === "sun" && b.eclipse) drawSunEclipse(p, b, rad, Hmat, atmosphere);
       else if (b.id === "saturn") drawSaturn(p, rad);
       else {
         ctx.beginPath(); ctx.arc(p[0], p[1], rad, 0, 2 * Math.PI);
@@ -397,13 +488,13 @@ export function createView2D(container) {
     return { kind: "body", name: b.name,
       type: b.id === "sun" ? "The Sun" : b.id === "moon" ? "The Moon" : "Planet",
       mag: b.mag, raDeg: b.ra_hours * 15, decDeg: b.dec_deg, alt: b.alt, altTrue: b.alt_true,
-      az: b.az, distanceAu: b.distance_au, phasePercent: b.phase_percent, _bodyId: b.id };
+      az: b.az, distanceAu: b.distance_au, phasePercent: b.phase_percent, eclipse: b.eclipse, _bodyId: b.id };
   }
   function pickAt(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const px = clientX - rect.left, py = clientY - rect.top;
     let best = null, bestD = 11;     // <=10 px (Section 8 item 2)
-    if (starsRaw && lastM) {
+    if (starsRaw && lastM && show.stars) {   // hidden star field must not swallow taps
       for (let i = 0; i < starsRaw.length; i++) {
         const w = _world(lastM, starVec[3 * i], starVec[3 * i + 1], starVec[3 * i + 2]);
         const [alt, az] = vecToAltAz(w[0], w[1], w[2]);
@@ -416,7 +507,7 @@ export function createView2D(container) {
         }
       }
     }
-    if (sky && lastH) for (const b of sky.bodies) {
+    if (sky && lastH && !deepOn) for (const b of sky.bodies) {   // deep time hides bodies
       const rv = bodyVec(b);
       const w = _world(lastH, rv[0], rv[1], rv[2]);
       const [alt, az] = vecToAltAz(w[0], w[1], w[2]);
@@ -424,7 +515,7 @@ export function createView2D(container) {
       const d = Math.hypot(p[0] - px, p[1] - py);
       if (d < bestD) { bestD = d; best = bodyDescriptor(b); }
     }
-    if (messier && lastM) for (const m of messier) {
+    if (messier && lastM && show.messier) for (const m of messier) {   // only when the layer is on
       const w = _world(lastM, m.vec[0], m.vec[1], m.vec[2]);
       const [alt, az] = vecToAltAz(w[0], w[1], w[2]);
       const p = project(alt, az, lastAtmos); if (!p) continue;
@@ -440,8 +531,8 @@ export function createView2D(container) {
   function setSelected(desc) { selected = desc; }
   function findByName(name) {
     const lc = name.toLowerCase();
-    if (sky) { const b = sky.bodies.find((x) => x.name.toLowerCase() === lc); if (b) return bodyDescriptor(b); }
-    if (starsRaw) {
+    if (sky && !deepOn) { const b = sky.bodies.find((x) => x.name.toLowerCase() === lc); if (b) return bodyDescriptor(b); }
+    if (starsRaw && show.stars) {
       const idx = starsRaw.findIndex((x) => x[4] && x[4].toLowerCase() === lc);
       if (idx >= 0) {
         const s = starsRaw[idx];
@@ -529,9 +620,11 @@ export function createView2D(container) {
 
   // --- input ---------------------------------------------------------------
   let dragging = false, lastX = 0, lastY = 0;
+  const pinching = setupPinch(canvas, (r) => { zoom = Math.max(0.3, Math.min(8, zoom * r)); });
   canvas.addEventListener("pointerdown", (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId); });
   canvas.addEventListener("pointerup", (e) => { dragging = false; canvas.releasePointerCapture(e.pointerId); });
   canvas.addEventListener("pointermove", (e) => {
+    if (pinching()) { lastX = e.clientX; lastY = e.clientY; return; }   // no rotate while pinching
     if (!dragging) return;
     rotation += (e.clientX - lastX) * 0.005;       // drag rotates about the zenith
     lastX = e.clientX; lastY = e.clientY;

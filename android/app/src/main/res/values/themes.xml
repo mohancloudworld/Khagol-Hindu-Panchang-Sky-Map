@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Platform Material theme (no appcompat dependency): dark chrome matching the app's sky
+         background, so the moment before WebView paints is seamless. -->
+    <style name="Theme.Khagol" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/khagol_bg</item>
+        <item name="android:colorBackground">@color/khagol_bg</item>
+        <item name="android:statusBarColor">@color/khagol_bg</item>
+        <item name="android:navigationBarColor">@color/khagol_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

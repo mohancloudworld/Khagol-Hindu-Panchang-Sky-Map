@@ -47,6 +47,17 @@ function rows(d) {
   if (d.distanceAu != null) r.push(["Distance", `${d.distanceAu.toFixed(4)} AU`]);
   if (d.helioAu != null) r.push(["From Sun", `${d.helioAu.toFixed(3)} AU`]);
   if (d.phasePercent != null) r.push(["Illumination", `${f1(d.phasePercent)} %`]);
+  // During an eclipse the phase above is still the Sun-Moon geometry (a full Moon, in the
+  // lunar case) — the shadow is a separate fact, so it gets its own rows.
+  if (d.eclipse) {
+    const e = d.eclipse;
+    r.push(["Eclipse", `${e.type}${e.saros ? ` · Saros ${e.saros.series}/${e.saros.member}` : ""}`]);
+    if (e.umbral_magnitude != null) {
+      r.push(["Umbral magnitude", f1(e.umbral_magnitude * 100) + " %"]);
+      r.push(["Disc in umbra", f1((1 - e.lit_fraction) * 100) + " %"]);
+    }
+    if (e.obscuration != null) r.push(["Sun obscured", f1(e.obscuration * 100) + " %"]);
+  }
   if (d.rashi) r.push(["Rashi", d.rashi]);
   if (d.periodDays != null) {
     const y = d.periodDays / 365.25;

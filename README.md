@@ -1,14 +1,15 @@
 # Khagol — Hindu Panchang & Sky Map
 
-**Khagol** (खगोल, *the celestial sphere*) is an offline browser extension that combines a daily
-**Hindu Panchang** (almanac) with an interactive **3D/2D sky map**, a **solar-system orrery** with
-the sidereal **Rashi band**, and a **Kundali** (birth chart) — all computed **on your device**.
+**Khagol** (खगोल, *the celestial sphere*) is an offline **Android app** and **browser extension**
+that combines a daily **Hindu Panchang** (almanac) with an interactive **3D/2D sky map**, a
+**solar-system orrery** with the sidereal **Rashi band**, **eclipses (grahana)**, and a **Kundali**
+(birth chart) with 36-guna **Kundali Milan** — all computed **on your device**.
 
 > 🔒 **100% offline. No internet, no accounts, no tracking.** Every position is calculated locally
 > with the Swiss Ephemeris (Moshier mode) compiled to WebAssembly; nothing you enter ever leaves
 > your browser.
 
-![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-e0a93a) ![Version](https://img.shields.io/badge/version-1.0.0-5b9bd5) ![Offline](https://img.shields.io/badge/offline-100%25-2ea043)
+![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-e0a93a) ![Version](https://img.shields.io/badge/version-1.1.0-5b9bd5) ![Offline](https://img.shields.io/badge/offline-100%25-2ea043)
 
 ---
 
@@ -49,12 +50,28 @@ The **Stars** toggle in action — the 2D dome with and without the catalogue st
 - **Hindu or English names** — graha/nakshatra names show in **Hindu by default** (Surya, Chandra,
   Chitra, Rohini…); switch to English in settings.
 - **Deep time** — drift the stars and pole star over millennia.
+- **Grahana (eclipses)** — every solar and lunar eclipse: contact times, magnitude, how much of the
+  disc is covered *from your location*, and whether it is visible there at all. The Sun and Moon are
+  drawn eclipsed in the sky views, and eclipses are marked in the day card and the month calendar.
+- **Match (Kundali Milan)** — classical 36-guna ashtakoota matching between two charts, and a
+  plain-language interpretation of any Kundali (temperament, dignities, houses, dasha timing).
+- **Reminders** *(Android)* — a morning notification for festivals, saved tithis and eclipses, and
+  exact wake alarms at brahma muhurta / sunrise; all scheduled on the device.
+- **Calendar export** — festivals, saved dates and eclipses as an `.ics` file for Google Calendar
+  or any calendar app.
+- **Type any date** — year / month / day boxes on every date field (a birth date decades back is
+  three boxes, not three hundred taps); the month calendar jumps by month, year or typed year.
 
 ## Install
+
+**Android app** — the same code in a native WebView shell, no INTERNET permission at all. Google Play
+listing *coming soon*; until then build it from [`android/`](android/README.md)
+(`bash android/build.sh assembleDebug`, fully containerized) and install the APK.
 
 **From the stores** *(links added when published):*
 - 🦊 Firefox Add-ons — *coming soon*
 - 🌐 Chrome Web Store — *coming soon*
+- ▶️ Google Play — *coming soon*
 
 **Load it yourself (no store needed):**
 - **Firefox:** `about:debugging` → *This Firefox* → *Load Temporary Add-on…* → pick `manifest.json`.
@@ -64,11 +81,13 @@ The **Stars** toggle in action — the 2D dome with and without the catalogue st
 ## How to use & explore
 
 Click the toolbar icon for a quick **popup** with today's Panchang, or open the full view for
-everything. The top bar switches between **3D Sky · 2D Dome · Solar System · Panchang · Kundali**.
+everything. The bottom bar switches between **3D Sky · 2D Dome · Solar · Panchang · Kundali · Match**; tap the
+place / time strip at the top for the **Place & time** sheet.
 
 **Set where & when** (shared by every view):
 - **City** search, or type **Lat/Lon**, or **📍 Here** for your current location.
-- **Date** and **Time** (24h), or **Now** to snap back to live; toggle **12h/24h**.
+- **Date** (type year / month / day, or 📅 for a picker) and **Time** (24h), or **Now** to snap back
+  to live; toggle **12h/24h**.
 - In **Kundali** these fields mean the *birth* place & time, and **Node / Ayanamsa** (Lahiri, Raman,
   KP) appear.
 
@@ -105,9 +124,10 @@ Full provenance, pinned toolchain, and a one-command reproducible build are in
 ## How it works (brief)
 
 Positions come from the **Swiss Ephemeris in Moshier mode** (`vendor/swe_wasm.c` → `vendor/sweph.wasm`),
-which needs no ephemeris data files, so the whole extension is self-contained and works with the
-network off. The Panchang/Kundali logic lives in `src/`; the sky/orrery rendering uses a vendored
-copy of Three.js. City names and star data are bundled JSON in `data/`.
+which needs no ephemeris data files, so the whole app is self-contained and works with the network
+off. The Panchang/Kundali/eclipse logic lives in `src/`; the sky/orrery rendering uses a vendored
+copy of Three.js. City names and star data are bundled JSON in `data/`. The Android app
+(`android/`) is a two-file Kotlin shell that serves exactly these files from its assets.
 
 ## License
 

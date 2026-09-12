@@ -9,3 +9,8 @@ Thumbs.db
 *.zip
 *.xpi
 node_modules/
+
+# Extension build / test scratch
+*.log
+test/package.json
+test/package-lock.json

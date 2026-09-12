@@ -1,0 +1,441 @@
+{
+  "interpretation": {
+    "disclaimer": "Generated from classical jyotisha significations for study and cultural reference — not a personalized reading or professional advice.",
+    "temperament": {
+      "lagna_rashi": "Meena",
+      "element": "Jala (water)",
+      "modality": "Dvisvabhava (dual)",
+      "lord": "Jupiter",
+      "lord_rashi": "Mesha",
+      "lord_bhava": 2,
+      "keywords": "compassionate, imaginative, receptive",
+      "text": "With Meena rising, the core temperament is classically described as compassionate, imaginative, receptive — a sign of the Jala (water) element in Dvisvabhava (dual) mode. Its lord Jupiter sits in Mesha (the 2nd bhava), which colours how that nature is expressed."
+    },
+    "mind": {
+      "chandra_rashi": "Tula",
+      "nakshatra": "Swati",
+      "pada": 4,
+      "deity": "Vayu",
+      "symbol": "coral / young shoot",
+      "gana": "Deva",
+      "keywords": "independence, adaptability, balance-seeking",
+      "moon_bhava": 8,
+      "text": "The Moon in Tula classically signifies an emotional nature that is harmonious, diplomatic, relational. Born under Swati (deity Vayu, symbol coral / young shoot, Deva gana), the mind is traditionally associated with independence, adaptability, balance-seeking. The Moon occupies the 8th bhava from the lagna."
+    },
+    "dignities": {
+      "chips": [
+        "Saturn ↓ debilitated"
+      ],
+      "rows": [
+        {
+          "graha": "Sun",
+          "rashi": "Dhanu",
+          "dignity": "neutral",
+          "bhanga": false,
+          "combust": false,
+          "notes": "neutral"
+        },
+        {
+          "graha": "Moon",
+          "rashi": "Tula",
+          "dignity": "neutral",
+          "bhanga": false,
+          "combust": false,
+          "notes": "neutral"
+        },
+        {
+          "graha": "Mars",
+          "rashi": "Kumbha",
+          "dignity": "neutral",
+          "bhanga": false,
+          "combust": false,
+          "notes": "neutral"
+        },
+        {
+          "graha": "Mercury",
+          "rashi": "Dhanu",
+          "dignity": "neutral",
+          "bhanga": false,
+          "combust": false,
+          "notes": "neutral"
+        },
+        {
+          "graha": "Jupiter",
+          "rashi": "Mesha",
+          "dignity": "neutral",
+          "bhanga": false,
+          "combust": false,
+          "notes": "neutral"
+        },
+        {
+          "graha": "Saturn",
+          "rashi": "Mesha",
+          "dignity": "debilitated",
+          "bhanga": false,
+          "combust": false,
+          "notes": "debilitated"
+        },
+        {
+          "graha": "Venus",
+          "rashi": "Vrischika",
+          "dignity": "neutral",
+          "bhanga": false,
+          "combust": false,
+          "notes": "neutral"
+        },
+        {
+          "graha": "Rahu",
+          "rashi": "Karka",
+          "dignity": "variant traditions",
+          "bhanga": false,
+          "combust": false,
+          "notes": "neutral"
+        },
+        {
+          "graha": "Ketu",
+          "rashi": "Makara",
+          "dignity": "variant traditions",
+          "bhanga": false,
+          "combust": false,
+          "notes": "neutral"
+        }
+      ],
+      "note": "Dignity reflects exaltation / own-sign / debilitation only; the full friend-enemy (maitri) matrix is deliberately omitted in this version."
+    },
+    "bhavas": {
+      "system": "whole-sign houses",
+      "rows": [
+        {
+          "bhava": 1,
+          "name": "Tanu",
+          "significations": "self, body, temperament",
+          "rashi": "Meena",
+          "occupants": [],
+          "lord": "Jupiter",
+          "lord_rashi": "Mesha",
+          "lord_bhava": 2,
+          "sentence": ""
+        },
+        {
+          "bhava": 2,
+          "name": "Dhana",
+          "significations": "wealth, speech, family",
+          "rashi": "Mesha",
+          "occupants": [
+            "Jupiter",
+            "Saturn"
+          ],
+          "lord": "Mars",
+          "lord_rashi": "Kumbha",
+          "lord_bhava": 12,
+          "sentence": "Jupiter & Saturn in the 2nd (Dhana) brings wisdom, expansion and good counsel, discipline, patience and hard-earned results to matters of wealth, speech, family."
+        },
+        {
+          "bhava": 3,
+          "name": "Sahaja",
+          "significations": "siblings, courage, skills",
+          "rashi": "Vrishabha",
+          "occupants": [],
+          "lord": "Venus",
+          "lord_rashi": "Vrischika",
+          "lord_bhava": 9,
+          "sentence": ""
+        },
+        {
+          "bhava": 4,
+          "name": "Sukha",
+          "significations": "home, mother, comfort, education",
+          "rashi": "Mithuna",
+          "occupants": [],
+          "lord": "Mercury",
+          "lord_rashi": "Dhanu",
+          "lord_bhava": 10,
+          "sentence": ""
+        },
+        {
+          "bhava": 5,
+          "name": "Putra",
+          "significations": "children, creativity, intellect",
+          "rashi": "Karka",
+          "occupants": [
+            "Rahu"
+          ],
+          "lord": "Moon",
+          "lord_rashi": "Tula",
+          "lord_bhava": 8,
+          "sentence": "Rahu in the 5th (Putra) brings amplification, ambition and unconventional pulls to matters of children, creativity, intellect."
+        },
+        {
+          "bhava": 6,
+          "name": "Ripu",
+          "significations": "obstacles, health challenges, service",
+          "rashi": "Simha",
+          "occupants": [],
+          "lord": "Sun",
+          "lord_rashi": "Dhanu",
+          "lord_bhava": 10,
+          "sentence": ""
+        },
+        {
+          "bhava": 7,
+          "name": "Kalatra",
+          "significations": "marriage, partnerships",
+          "rashi": "Kanya",
+          "occupants": [],
+          "lord": "Mercury",
+          "lord_rashi": "Dhanu",
+          "lord_bhava": 10,
+          "sentence": ""
+        },
+        {
+          "bhava": 8,
+          "name": "Ayur",
+          "significations": "longevity, transformation, the hidden",
+          "rashi": "Tula",
+          "occupants": [
+            "Moon"
+          ],
+          "lord": "Venus",
+          "lord_rashi": "Vrischika",
+          "lord_bhava": 9,
+          "sentence": "Moon in the 8th (Ayur) brings emotional sensitivity and changefulness to matters of longevity, transformation, the hidden."
+        },
+        {
+          "bhava": 9,
+          "name": "Dharma",
+          "significations": "fortune, father, higher learning",
+          "rashi": "Vrischika",
+          "occupants": [
+            "Venus"
+          ],
+          "lord": "Mars",
+          "lord_rashi": "Kumbha",
+          "lord_bhava": 12,
+          "sentence": "Venus in the 9th (Dharma) brings harmony, relationship and refinement to matters of fortune, father, higher learning."
+        },
+        {
+          "bhava": 10,
+          "name": "Karma",
+          "significations": "career, status, public life",
+          "rashi": "Dhanu",
+          "occupants": [
+            "Sun",
+            "Mercury"
+          ],
+          "lord": "Jupiter",
+          "lord_rashi": "Mesha",
+          "lord_bhava": 2,
+          "sentence": "Sun & Mercury in the 10th (Karma) brings vitality, authority and a wish to shine, intellect, communication and adaptability to matters of career, status, public life."
+        },
+        {
+          "bhava": 11,
+          "name": "Labha",
+          "significations": "gains, income, friendships",
+          "rashi": "Makara",
+          "occupants": [
+            "Ketu"
+          ],
+          "lord": "Saturn",
+          "lord_rashi": "Mesha",
+          "lord_bhava": 2,
+          "sentence": "Ketu in the 11th (Labha) brings detachment, introspection and a spiritual undertone to matters of gains, income, friendships."
+        },
+        {
+          "bhava": 12,
+          "name": "Vyaya",
+          "significations": "expenditure, distant lands, rest, moksha",
+          "rashi": "Kumbha",
+          "occupants": [
+            "Mars"
+          ],
+          "lord": "Saturn",
+          "lord_rashi": "Mesha",
+          "lord_bhava": 2,
+          "sentence": "Mars in the 12th (Vyaya) brings drive, energy and a competitive edge to matters of expenditure, distant lands, rest, moksha."
+        }
+      ]
+    },
+    "timing": {
+      "dasha_paragraph": "The current period runs under the maha (major) lord Saturn is debilitated in Mesha (occupying the 2nd bhava, ruling the 11th, 12th); the antar (sub) lord Mercury is neutral in Dhanu (occupying the 10th bhava, ruling the 4th, 7th). Classically, the themes of those bhavas are emphasised during this period.",
+      "gochara_rows": [
+        {
+          "graha": "Sun",
+          "transit_rashi": "Dhanu",
+          "house_from_moon": 3
+        },
+        {
+          "graha": "Moon",
+          "transit_rashi": "Vrishabha",
+          "house_from_moon": 8
+        },
+        {
+          "graha": "Mars",
+          "transit_rashi": "Dhanu",
+          "house_from_moon": 3
+        },
+        {
+          "graha": "Mercury",
+          "transit_rashi": "Dhanu",
+          "house_from_moon": 3
+        },
+        {
+          "graha": "Jupiter",
+          "transit_rashi": "Mithuna",
+          "house_from_moon": 9
+        },
+        {
+          "graha": "Venus",
+          "transit_rashi": "Dhanu",
+          "house_from_moon": 3
+        },
+        {
+          "graha": "Saturn",
+          "transit_rashi": "Meena",
+          "house_from_moon": 6
+        },
+        {
+          "graha": "Rahu",
+          "transit_rashi": "Kumbha",
+          "house_from_moon": 5
+        },
+        {
+          "graha": "Ketu",
+          "transit_rashi": "Simha",
+          "house_from_moon": 11
+        }
+      ],
+      "headlines": [
+        {
+          "name": "Sade Sati",
+          "active": false,
+          "text": "Saturn is not in the 12th, 1st or 2nd from the natal Moon — Sade Sati is not indicated at present."
+        },
+        {
+          "name": "Jupiter gochara",
+          "active": true,
+          "text": "Jupiter transits the 9th from the Moon — classically favourable."
+        },
+        {
+          "name": "Saturn gochara",
+          "active": true,
+          "text": "Saturn transits the 6th from the Moon — a classically supportive placement."
+        },
+        {
+          "name": "Rahu–Ketu axis",
+          "active": false,
+          "text": "The Rahu–Ketu axis falls across the 5th/11th houses from the Moon."
+        }
+      ]
+    },
+    "upayas": {
+      "disclaimer": "Traditional reference only — listed for grahas the chart flags. Presented as customs associated with each graha, not a prescription.",
+      "flagged": [
+        {
+          "graha": "Saturn",
+          "gemstone": "blue sapphire",
+          "vara": "Saturday",
+          "deity": "Shani / Hanuman",
+          "reasons": [
+            "current maha-dasha lord",
+            "debilitated"
+          ],
+          "text": "Saturn is traditionally associated with the blue sapphire (vara Saturday, deity Shani / Hanuman)."
+        },
+        {
+          "graha": "Mercury",
+          "gemstone": "emerald",
+          "vara": "Wednesday",
+          "deity": "Vishnu",
+          "reasons": [
+            "current antar-dasha lord"
+          ],
+          "text": "Mercury is traditionally associated with the emerald (vara Wednesday, deity Vishnu)."
+        }
+      ],
+      "all": [
+        {
+          "graha": "Sun",
+          "gemstone": "ruby",
+          "vara": "Sunday",
+          "deity": "Surya / Aditya Hridayam",
+          "reasons": [],
+          "text": "Sun is traditionally associated with the ruby (vara Sunday, deity Surya / Aditya Hridayam)."
+        },
+        {
+          "graha": "Moon",
+          "gemstone": "pearl",
+          "vara": "Monday",
+          "deity": "Shiva",
+          "reasons": [],
+          "text": "Moon is traditionally associated with the pearl (vara Monday, deity Shiva)."
+        },
+        {
+          "graha": "Mars",
+          "gemstone": "red coral",
+          "vara": "Tuesday",
+          "deity": "Subrahmanya / Hanuman",
+          "reasons": [],
+          "text": "Mars is traditionally associated with the red coral (vara Tuesday, deity Subrahmanya / Hanuman)."
+        },
+        {
+          "graha": "Mercury",
+          "gemstone": "emerald",
+          "vara": "Wednesday",
+          "deity": "Vishnu",
+          "reasons": [],
+          "text": "Mercury is traditionally associated with the emerald (vara Wednesday, deity Vishnu)."
+        },
+        {
+          "graha": "Jupiter",
+          "gemstone": "yellow sapphire",
+          "vara": "Thursday",
+          "deity": "Dakshinamurthy",
+          "reasons": [],
+          "text": "Jupiter is traditionally associated with the yellow sapphire (vara Thursday, deity Dakshinamurthy)."
+        },
+        {
+          "graha": "Venus",
+          "gemstone": "diamond",
+          "vara": "Friday",
+          "deity": "Lakshmi",
+          "reasons": [],
+          "text": "Venus is traditionally associated with the diamond (vara Friday, deity Lakshmi)."
+        },
+        {
+          "graha": "Saturn",
+          "gemstone": "blue sapphire",
+          "vara": "Saturday",
+          "deity": "Shani / Hanuman",
+          "reasons": [],
+          "text": "Saturn is traditionally associated with the blue sapphire (vara Saturday, deity Shani / Hanuman)."
+        },
+        {
+          "graha": "Rahu",
+          "gemstone": "hessonite",
+          "vara": "—",
+          "deity": "Durga",
+          "reasons": [],
+          "text": "Rahu is traditionally associated with the hessonite (vara —, deity Durga)."
+        },
+        {
+          "graha": "Ketu",
+          "gemstone": "cat's eye",
+          "vara": "—",
+          "deity": "Ganesha",
+          "reasons": [],
+          "text": "Ketu is traditionally associated with the cat's eye (vara —, deity Ganesha)."
+        }
+      ]
+    }
+  },
+  "inputs": {
+    "dt_utc": "2000-01-01T06:30:00+00:00",
+    "now": "2026-01-01T00:00:00+00:00",
+    "lagna_rashi": 11,
+    "current_dasha": {
+      "maha": "Saturn",
+      "antar": "Mercury",
+      "maha_ends": "2039-06-10"
+    }
+  }
+}

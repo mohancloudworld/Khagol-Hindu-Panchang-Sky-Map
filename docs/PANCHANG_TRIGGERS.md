@@ -2,8 +2,8 @@
 
 Reference for **which element is decided by which instant** (sunrise, sunset, midnight,
 moonrise, …) and a concrete demonstration of how sensitive these are to location. The rules
-below are the ones Khagol implements (`src/`); the compute layer is validated against an
-independent reference engine (see `BUILD.md`).
+below are the ones implemented identically in the app (`app/panchang/`) and the extension
+(`extension/src/`); the extension is validated against the app (see `BUILD.md`).
 
 ---
 
@@ -50,7 +50,7 @@ jumps straight from #30 to #2:
 **#1 Shukla Pratipada is missing.** It begins 03-19 **06:53** (32 min *after* that day's sunrise)
 and ends 03-20 **04:53** (~1.5 h *before* the next sunrise) — touching no sunrise. So **Ugadi
 2026 falls on 2026-03-19** (the day Pratipada *begins*) even though that day's sunrise tithi is
-Amavasya. Khagol matches the independent reference engine here exactly.
+Amavasya. App and extension agree exactly; it's a committed vector (`validate_masa.mjs`).
 
 The mirror case (vriddhi) puts the same tithi number at sunrise on two consecutive days; a
 sunrise-triggered festival on such a tithi then uses the standard udaya pick (the first
@@ -116,7 +116,7 @@ in longitude (1° longitude = 4 min of solar time):
 | Point-W1 | 78.236°E | −1.0 min |
 | Point-W | 77.886°E | −2.4 min |
 
-**Tithi at sunrise flips with these tiny shifts** (computed values, 2020–2035 edge dates):
+**Tithi at sunrise flips with these tiny shifts** (app values, 2020–2035 edge dates):
 
 | Date | Hyderabad | Point-W1 (−1 min) | Point-W (−2.4 min) | Hyderabad margin¹ |
 |---|---|---|---|---|
@@ -136,14 +136,14 @@ on these edge dates. That is correct astronomy, not an engine error.
 (2021-04-11); Point-W's is **1.6 s** — 2028-12-17, Shukla Pratipada ends 1.6 s after sunrise.
 
 ### Honest limit at sub-~3-second margins
-On 2028-12-17 (Point-W) Khagol still matched the reference engine (both *Shukla Pratipada*), but
-only just: boundary 06:41:53, reference sunrise 06:41:51, Khagol sunrise 06:41:52 — both land
-barely before the boundary. At margins below ~3 s, agreement is **within the noise**: Khagol's
-rise/set algorithm differs from the reference by ~1–3 s (see `BUILD.md`), comparable to the margin.
+On 2028-12-17 (Point-W) the extension still matched the app (both *Shukla Pratipada*), but only
+just: boundary 06:41:53, app sunrise 06:41:51, extension sunrise 06:41:52 — both land barely
+before the boundary. At margins below ~3 s, agreement is **within the noise**: the extension's
+rise/set algorithm differs from the app's by ~1–3 s (see `BUILD.md`), comparable to the margin.
 More fundamentally, at that scale the result is **physically ambiguous** — real horizon
 refraction varies with weather by far more than a second — so *no* engine or almanac can claim
 authority on which tithi prevails when the boundary is ~1 s from sunrise. Above ~10 s the
 engines agree solidly.
 
-*(These margins come from a 16-year scan cross-checked against an independent reference engine;
-see `BUILD.md`.)*
+*(Reproduce: the 16-year scan and the flip table are computed against the app in
+`test/validate_edge_sunrise.mjs` and the festival suites; see `BUILD.md` → Edge coverage.)*

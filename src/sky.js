@@ -1,7 +1,8 @@
-// Apparent sky — the /api/sky equivalent, computed locally (Moshier).
-// Positions are ~arcsec vs a DE440s reference (Moshier used for the visual sky);
+// Apparent sky — the /api/sky equivalent, computed locally (Moshier). Ports app/sky.py.
+// Positions are ~arcsec vs the app's DE440s (you accepted Moshier for the visual sky);
 // alt/az are geometric (refraction omitted — sub-arcmin near the horizon only).
 import * as swe from "./sweph.js";
+import * as eclipse from "./eclipse.js";
 
 const BODY_DISPLAY = {
   sun: "Sun", moon: "Moon", mercury: "Mercury", venus: "Venus", mars: "Mars",
@@ -33,7 +34,7 @@ function moonPhotometry(jd) {
   const phaseAngle = Math.abs(180 - elong);
   const i = phaseAngle * D2R;
   const mag = -12.73 + 1.49 * i + 0.043 * i ** 4;
-  return { phasePct, phaseAngle, mag };
+  return { phasePct, phaseAngle, mag, waxing: elong < 180 };
 }
 
 function bodyEntry(id, jd, lstHours, lat) {
@@ -58,8 +59,34 @@ function bodyEntry(id, jd, lstHours, lat) {
     e.mag = +m.mag.toFixed(2);
     e.phase_percent = +m.phasePct.toFixed(1);
     e.phase_angle_deg = +m.phaseAngle.toFixed(1);
+    e.phase_waxing = m.waxing;
   } else e.mag = +swe.magnitude(jd, id).toFixed(2);
   return e;
+}
+
+// An eclipse in progress: the Moon's brightness comes from Earth's shadow, not from its
+// phase, and the Sun's from how much of it the Moon is covering. moonPhotometry() only knows
+// the Sun-Moon elongation, so without this the views draw a full Moon straight through a
+// total lunar eclipse. Attaches `eclipse` to the affected body and corrects `mag`.
+function attachEclipses(bodies, jd, lat, lon) {
+  const moon = bodies.find((b) => b.id === "moon");
+  const sun = bodies.find((b) => b.id === "sun");
+  if (moon && sun) {
+    const sh = eclipse.moonShadow(jd, moon.distance_au, sun.ra_hours, sun.dec_deg);
+    if (sh) {
+      moon.eclipse = sh;
+      moon.mag = +(moon.mag + sh.mag_delta).toFixed(2);
+    }
+  }
+  if (sun) {
+    const ob = eclipse.sunObscuration(jd, lat, lon);
+    if (ob) {
+      sun.eclipse = ob;
+      // Obscuring 99% of the disc costs only ~5 magnitudes; the Sun stays overwhelming
+      // until the last sliver goes, which is exactly why totality is so abrupt.
+      sun.mag = +(SUN_MAG - 2.5 * Math.log10(Math.max(1e-5, 1 - ob.obscuration))).toFixed(2);
+    }
+  }
 }
 
 export function computeSky(lat, lon, dtUTC, ayanamsa = "lahiri") {
@@ -67,6 +94,7 @@ export function computeSky(lat, lon, dtUTC, ayanamsa = "lahiri") {
   swe.setTopo(lon, lat, 0);                 // topocentric observer (Moon parallax) — matches sky.py
   const lstHours = norm360HoursFromGast(swe.gastHours(jd), lon);
   const bodies = Object.keys(BODY_DISPLAY).map((id) => bodyEntry(id, jd, lstHours, lat));
+  attachEclipses(bodies, jd, lat, lon);
   return {
     time_utc: dtUTC.toISOString().replace(/\.\d+Z$/, "Z").replace(/\.\d+$/, ""),
     lat, lon,

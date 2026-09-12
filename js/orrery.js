@@ -8,6 +8,7 @@
 
 import * as THREE from "../vendor/three.module.js";
 import * as i18n from "./i18n.js";
+import { setupPinch } from "./ui.js";
 import { matVec, eclipticPrecessionMatrix, eclipticLatitude } from "./astro.js";
 
 // Approx fractional year (CE) from an ISO instant -- precession is ~50"/yr, so day precision is plenty.
@@ -61,6 +62,15 @@ export function createOrrery(container) {
   // --- orbit controls (orbit a target, dolly) ------------------------------
   const target = new THREE.Vector3(0, 0, 0);  // orbit pivot (the Sun, or a followed body)
   let followId = null;                         // id of the body the camera is following
+  let onFollowChange = null;                   // hook: (id, displayName|null) on any change
+  function setFollow(id) {
+    followId = id === "sun" ? null : id;       // the Sun IS the default pivot — never a "follow"
+    if (!followId) target.set(0, 0, 0);
+    if (onFollowChange) {
+      const b = followId && lastData ? lastData.bodies.find((x) => x.id === followId) : null;
+      onFollowChange(followId, b ? b.name : null);
+    }
+  }
   let radius = 40, az = 0, pol = 0.9;         // start tilted (not straight-down) for a 3D look
   const heldKeys = new Set();                  // arrow keys currently down (smooth orbit)
   let keyLast = 0;
@@ -198,6 +208,7 @@ export function createOrrery(container) {
     lastTrails = resp;
     scene.remove(trailGroup);
     trailGroup = new THREE.Group();
+    trailGroup.visible = !deepTime;   // a refetch's rebuilt group must not resurrect the trails
     scene.add(trailGroup);
     for (const id in resp.trails) {
       const pts = resp.trails[id];
@@ -327,8 +338,28 @@ export function createOrrery(container) {
   }
 
   // Drift + precess every star to `year` (CE). Cheap enough to call on demand (~5000 vec ops).
+  let _bandRebuildAt = 0, _bandRebuildT = null;
+  // The band/axis are epoch-aware (ayanAtEpoch) but their geometry must be REBUILT when the
+  // epoch moves — throttled (labels are canvas sprites; playback calls setEpoch every frame),
+  // with a trailing call so the final slider/pause position is exact.
+  function rebuildBandForEpoch() {
+    if (!rashiOn) return;
+    const now = performance.now();
+    if (now - _bandRebuildAt >= 120) {
+      _bandRebuildAt = now;
+      rebuildRashiBand(); rebuildRashiSight(); rebuildSpicaAxis();
+    } else {
+      clearTimeout(_bandRebuildT);
+      _bandRebuildT = setTimeout(() => {
+        _bandRebuildAt = performance.now();
+        rebuildRashiBand(); rebuildRashiSight(); rebuildSpicaAxis();
+      }, 130);
+    }
+  }
+
   function setEpoch(year) {
     starEpoch = year;
+    rebuildBandForEpoch();
     if (!starPoints || !starP0) return;
     const dt = year - STAR_EPOCH0, n = starP0.length / 3;
     const P = eclipticPrecessionMatrix(jdOfYear(year));   // J2000 -> year, ecliptic frame
@@ -364,11 +395,14 @@ export function createOrrery(container) {
       mesh.visible = !on;
       const l = bodyLabels.get(id); if (l) l.visible = !on;
     }
-    if (on) { rashiBand.visible = false; rashiSight.visible = false; spicaAxis.visible = false; }
-    else {
-      rashiBand.visible = rashiOn; rashiSight.visible = rashiOn; spicaAxis.visible = rashiOn;
-      setEpoch(regularYear);   // back to the live sim epoch (precessed), not a hard-coded 2000
-    }
+    // Trails go too: with planets hidden they're ownerless lines — and the Moon's
+    // Earth-relative (x30) trail kept riding the INVISIBLE Earth around the Sun (the reported
+    // "tiny circle orbiting the sun" during normal time-lapse in deep mode).
+    trailGroup.visible = !on;
+    // The band + Spica axis are epoch-aware and stay meaningful against the drifting stars;
+    // only the Earth->planet sight lines hide (their planets are hidden).
+    rashiSight.visible = rashiOn && !on;
+    if (!on) setEpoch(regularYear);   // back to the live sim epoch (precessed)
   }
 
   // Ecliptic reference: faint rings at 1/5/10/30 AU. (The 0 Aries reference is now the
@@ -377,6 +411,11 @@ export function createOrrery(container) {
   const ecliptic = new THREE.Group();
   scene.add(ecliptic);
   let lastAyan = 0;
+  // Ayanamsa at the star epoch: lastAyan is for the SIM date; in deep time the stars are
+  // precessed to starEpoch, so the sidereal band/axis must rotate with them — same uniform
+  // rate the precession matrix uses. Keeps the '0 Mesha (opposite Spica)' axis pointing at
+  // Spica AT EVERY EPOCH, by construction.
+  const ayanAtEpoch = () => lastAyan + (starEpoch - regularYear) * 50.2879 / 3600;
   const scaleRadius = (au) => (scaleMode === "log" ? Math.log(1 + au) : au);
   function rebuildEcliptic() {
     ecliptic.clear();
@@ -410,7 +449,7 @@ export function createOrrery(container) {
 
   function rebuildRashiBand() {
     rashiBand.clear();
-    const off = lastAyan * D2R;                       // sidereal 0 Aries = tropical == ayanamsa
+    const off = ayanAtEpoch() * D2R;                  // sidereal 0 Aries, at the star epoch
     // Center the dial on EARTH, not the origin: rashi is geocentric, so the sectors must radiate
     // from Earth. Origin-centering looks fine in linear scale (Earth ~1 AU from a 36 AU dial) but
     // throws the sectors off by ~10 deg in log scale (Earth ~0.7 vs a ~3.6 dial). The labelled
@@ -501,7 +540,7 @@ export function createOrrery(container) {
     // sidereal 180 (Chitra/Lahiri anchor). Deriving the ray from Spica's FIXED J2000 direction
     // instead left it ~0.4 deg off the of-date band -- the J2000->now precession the band already
     // folds into the ayanamsa.
-    const off = lastAyan * D2R;
+    const off = ayanAtEpoch() * D2R;
     const d = new THREE.Vector3(Math.cos(off + Math.PI), Math.sin(off + Math.PI), 0);
     const spicaEnd = new THREE.Vector3(ep.x + d.x * RASHI_R, ep.y + d.y * RASHI_R, 0);
     const ariesEnd = new THREE.Vector3(ep.x - d.x * RASHI_R, ep.y - d.y * RASHI_R, 0);
@@ -519,7 +558,7 @@ export function createOrrery(container) {
   }
 
   function setRashiBand(v) {
-    rashiOn = v; rashiBand.visible = v; rashiSight.visible = v; spicaAxis.visible = v;
+    rashiOn = v; rashiBand.visible = v; rashiSight.visible = v && !deepTime; spicaAxis.visible = v;
     if (v) { rebuildRashiBand(); rebuildRashiSight(); rebuildSpicaAxis(); }
     applyStarTint();                     // gold for on-ecliptic nakshatra labels while the band is on
   }
@@ -682,9 +721,12 @@ export function createOrrery(container) {
   // --- input ---------------------------------------------------------------
   let dragging = false, lastX = 0, lastY = 0;
   const el = renderer.domElement;
+  el.style.touchAction = "none";        // keep two-finger gestures for us, not the browser
+  const pinching = setupPinch(el, (r) => { radius /= r; });
   el.addEventListener("pointerdown", (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; el.setPointerCapture(e.pointerId); });
   el.addEventListener("pointerup", (e) => { dragging = false; el.releasePointerCapture(e.pointerId); });
   el.addEventListener("pointermove", (e) => {
+    if (pinching()) { lastX = e.clientX; lastY = e.clientY; return; }   // no orbit while pinching
     if (!dragging) return;
     az -= (e.clientX - lastX) * 0.005;
     pol += (e.clientY - lastY) * 0.005;   // drag up -> rise to top-down (was inverted)
@@ -700,19 +742,32 @@ export function createOrrery(container) {
   });
   window.addEventListener("keyup", (e) => { if (ARROWS.has(e.key)) heldKeys.delete(e.key); });
   window.addEventListener("blur", () => heldKeys.clear());
-  // Double-click a body to follow it (retarget the orbit pivot).
-  el.addEventListener("dblclick", (e) => {
+  // Double-click a body to follow it (retarget the orbit pivot). On touch, dblclick synthesis
+  // is unreliable under touch-action:none, so a manual double-TAP detector (two taps within
+  // 350 ms / 30 px) feeds the same handler.
+  let tapT = 0, tapX = 0, tapY = 0;
+  el.addEventListener("pointerup", (e) => {
+    if (e.pointerType !== "touch") return;
+    const now = performance.now();
+    if (now - tapT < 350 && Math.hypot(e.clientX - tapX, e.clientY - tapY) < 30) {
+      tapT = 0;
+      followAt(e.clientX, e.clientY);
+    } else { tapT = now; tapX = e.clientX; tapY = e.clientY; }
+  });
+  el.addEventListener("dblclick", (e) => followAt(e.clientX, e.clientY));
+  function followAt(clientX, clientY) {
+    const e = { clientX, clientY };
     const rect = el.getBoundingClientRect();
     const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
     let bestId = null, bestD = 0.4;
     for (const [id, mesh] of bodyMeshes) {
+      if (!mesh.visible) continue;                 // hidden bodies can't be followed (deep time)
       const sp = mesh.position.clone().project(camera);
       const d = Math.hypot(sp.x - ndc.x, sp.y - ndc.y);
       if (d < bestD) { bestD = d; bestId = id; }
     }
-    followId = bestId;                       // follow a body, or null (Sun) on empty space
-    if (!bestId) target.set(0, 0, 0);
-  });
+    setFollow(bestId);                       // a body, or null (Sun/empty space) = home
+  }
   window.addEventListener("resize", resize);
   function resize() {
     const w = container.clientWidth, h = container.clientHeight;
@@ -733,6 +788,7 @@ export function createOrrery(container) {
     const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     let bestId = null, bestD = 0.06;
     for (const [id, mesh] of bodyMeshes) {
+      if (!mesh.visible) continue;                 // deep time hides all bodies but the sun
       const sp = mesh.position.clone().project(camera);
       const d = Math.hypot(sp.x - ndc.x, sp.y - ndc.y);
       if (d < bestD) { bestD = d; bestId = id; }
@@ -743,7 +799,7 @@ export function createOrrery(container) {
   function findByName(name) {
     const lc = name.toLowerCase();
     const b = lastData && lastData.bodies.find((x) => x.name.toLowerCase() === lc);
-    if (b) return _descriptor(b);
+    if (b && bodyMeshes.get(b.id)?.visible !== false) return _descriptor(b);
     if (starsRawO) {                 // background stars are searchable here too
       const idx = starsRawO.findIndex((x) => x[4] && x[4].toLowerCase() === lc);
       if (idx >= 0) {
@@ -762,14 +818,27 @@ export function createOrrery(container) {
     clearSelection: () => { selectedDesc = null; hideStarMarker(); },   // drop the search highlight, restore the star's label
     lookAtSelected: () => {
       if (!selectedDesc) return;
-      if (selectedDesc._id) { followId = selectedDesc._id; hideStarMarker(); }   // a solar-system body
+      if (selectedDesc._id) {
+        // Locate once: aim at the body's current spot without locking on (follow stays a
+        // deliberate double-tap gesture; search should never silently capture the camera).
+        setFollow(null);
+        const fb = lastData && lastData.bodies.find((b) => b.id === selectedDesc._id);
+        if (fb) target.copy(bodyRenderPos(fb));
+        hideStarMarker();
+      }
       else if (selectedDesc.kind === "star" && selectedDesc.raDeg != null) {
         aimAtStar(selectedDesc.raDeg, selectedDesc.decDeg, selectedDesc.name, selectedDesc._starIdx);
       }
     },
     // Rebuild trails + rings on scale change; bodies re-scale automatically each frame.
     setScaleMode: (m) => { scaleMode = m; rebuildEcliptic(); if (rashiOn) { rebuildRashiBand(); rebuildRashiSight(); rebuildSpicaAxis(); } if (lastTrails) setTrails(lastTrails); },
-    resetView: () => { followId = null; target.set(0, 0, 0); radius = 40; az = 0; pol = 0.9; hideStarMarker(); },
+    resetView: () => { setFollow(null); radius = 40; az = 0; pol = 0.9; hideStarMarker(); },
+    clearFollow: () => setFollow(null),
+    setFollowHook: (fn) => { onFollowChange = fn; },
+    pokeFollowHook: () => { if (onFollowChange) {
+      const b = followId && lastData ? lastData.bodies.find((x) => x.id === followId) : null;
+      onFollowChange(followId, b ? b.name : null);
+    } },
     setVisible: (v) => { renderer.domElement.style.display = v ? "block" : "none"; },
     // Orbit camera: tilt from top-down (0=looking straight down, 90=edge-on), spin around, and zoom
     // (relative to the default framing). Reference: top-down, default distance.

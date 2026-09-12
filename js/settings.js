@@ -8,7 +8,8 @@ const KEY = "settings";
 // Persisted fields and their defaults (the single source of truth for "reset to defaults").
 const DEFAULTS = {
   ayanamsa: "lahiri", node: "mean", nameMode: "hindu", language: "en",
-  telescopic: true, atmosphere: true, orreryScale: "linear",
+  atmosphere: false, orreryScale: "linear",   // atmosphere false = 🚀 Space view on first install;
+  // it persists from the Space-view layer toggle itself (no settings row needed)
 };
 const FIELDS = Object.keys(DEFAULTS);
 
@@ -37,17 +38,18 @@ export function createSettingsPanel(hooks = {}) {
     <div class="set-actions">
       <button class="set-act" data-act="export">📷 Save view as PNG</button>
       <button class="set-act" data-act="print">🖨 Print Kundali / PDF</button>
+      <button class="set-act" data-act="dbg">🐞 Save debug log</button>
     </div>
     <label>Ayanamsa<select data-k="ayanamsa">
       <option value="lahiri">Lahiri</option><option value="raman">Raman</option><option value="kp">KP</option></select></label>
+    <label>Node (Rahu/Ketu)<select data-k="node">
+      <option value="mean">Mean</option><option value="true">True</option></select></label>
     <label>Language Mode<select data-k="nameMode">
       <option value="english">English</option><option value="hindu">Hindu</option></select></label>
     <label class="set-lang">Language<select data-k="language">
       <option value="en">English</option></select></label>
-    <label class="set-row"><input type="checkbox" data-k="telescopic"> Show Uranus &amp; Neptune</label>
-    <label class="set-row"><input type="checkbox" data-k="atmosphere"> Atmosphere on by default</label>
-    <label>Orrery scale<select data-k="orreryScale">
-      <option value="linear">Linear</option><option value="log">Log</option></select></label>
+    <label>Time format<select data-k="timeFormat">
+      <option value="24h">24h</option><option value="12h">12h</option></select></label>
     <button class="set-reset">Reset to defaults</button>
     <div class="set-note">Ayanamsa is always shown in the footer; it shifts nakshatra / rashi boundaries.</div>`;
   document.body.append(btn, panel);
@@ -69,6 +71,8 @@ export function createSettingsPanel(hooks = {}) {
     const k = el.dataset.k;
     state.set(k, el.type === "checkbox" ? el.checked : el.value);
     persist();
+    // timeFormat lives in its own localStorage key (state.js boots from it) — keep it in step.
+    if (k === "timeFormat") { try { localStorage.setItem("timeFormat", el.value); } catch { /* quota */ } }
     if (k === "nameMode") {
       // Leaving Hindu mode: snap Language back to English so the now-greyed picker matches the
       // text on screen (otherwise keywords would stay in the last Indian language).
@@ -89,6 +93,9 @@ export function createSettingsPanel(hooks = {}) {
   // Context actions: export PNG (sky/orrery views) and print Kundali, enabled per view.
   const actExport = panel.querySelector('[data-act="export"]');
   const actPrint = panel.querySelector('[data-act="print"]');
+  const actDbg = panel.querySelector('[data-act="dbg"]');
+  actDbg.disabled = true;   // field-debug tool: kept wired, greyed out for normal use
+  actDbg.addEventListener("click", () => { if (hooks.onDebugLog) { hooks.onDebugLog(); panel.hidden = true; } });
   actExport.addEventListener("click", () => { if (!actExport.disabled && hooks.onExport) { hooks.onExport(); panel.hidden = true; } });
   actPrint.addEventListener("click", () => { if (!actPrint.disabled && hooks.onPrint) hooks.onPrint(); });
   const applyViewActions = (v) => {
@@ -100,7 +107,7 @@ export function createSettingsPanel(hooks = {}) {
 
   // Persist when a setting is changed OUTSIDE the gear (the Kundali bar mirrors node/ayanamsa/
   // language into state directly) -- so e.g. node, no longer in the gear, still survives reload.
-  for (const f of ["node", "ayanamsa", "language", "nameMode"]) state.subscribe(f, persist);
+  for (const f of ["node", "ayanamsa", "language", "nameMode", "orreryScale", "atmosphere"]) state.subscribe(f, persist);
 
   btn.addEventListener("click", () => { syncUi(); panel.hidden = !panel.hidden; });
   document.addEventListener("click", (e) => {

@@ -1,0 +1,164 @@
+2020|Ugadi|2020-03-25|False
+2020|Rama Navami|2020-04-02|False
+2020|Akshaya Tritiya|2020-04-26|False
+2020|Guru Purnima|2020-07-05|False
+2020|Krishna Janmashtami|2020-08-11|True
+2020|Vinayaka Chaturthi|2020-08-22|False
+2020|Sharad Navaratri begins|2020-10-17|False
+2020|Vijayadashami|2020-10-25|False
+2020|Naraka Chaturdashi|2020-11-14|False
+2020|Deepavali|2020-11-14|False
+2020|Karwa Chauth|2020-11-04|False
+2020|Karthika Purnima|2020-11-30|False
+2020|Vaikuntha Ekadashi|2020-12-25|False
+2020|Maha Shivaratri|2020-02-21|False
+2020|Holika Dahan|2020-03-09|False
+2021|Ugadi|2021-04-13|False
+2021|Rama Navami|2021-04-21|False
+2021|Akshaya Tritiya|2021-05-14|False
+2021|Guru Purnima|2021-07-24|False
+2021|Krishna Janmashtami|2021-08-30|False
+2021|Vinayaka Chaturthi|2021-09-10|False
+2021|Sharad Navaratri begins|2021-10-07|False
+2021|Vijayadashami|2021-10-15|False
+2021|Naraka Chaturdashi|2021-11-03|False
+2021|Deepavali|2021-11-04|False
+2021|Karwa Chauth|2021-10-24|False
+2021|Karthika Purnima|2021-11-19|False
+2021|Vaikuntha Ekadashi|2021-12-14|False
+2021|Maha Shivaratri|2021-03-11|False
+2021|Holika Dahan|2021-03-28|False
+2022|Ugadi|2022-04-02|False
+2022|Rama Navami|2022-04-10|False
+2022|Akshaya Tritiya|2022-05-03|False
+2022|Guru Purnima|2022-07-13|False
+2022|Krishna Janmashtami|2022-08-18|True
+2022|Vinayaka Chaturthi|2022-08-31|False
+2022|Sharad Navaratri begins|2022-09-26|False
+2022|Vijayadashami|2022-10-04|False
+2022|Naraka Chaturdashi|2022-10-24|False
+2022|Deepavali|2022-10-24|False
+2022|Karwa Chauth|2022-10-13|False
+2022|Karthika Purnima|2022-11-08|False
+2022|Vaikuntha Ekadashi|2022-12-03|False
+2022|Maha Shivaratri|2022-03-01|False
+2022|Holika Dahan|2022-03-17|False
+2023|Ugadi|2023-03-22|False
+2023|Rama Navami|2023-03-30|False
+2023|Akshaya Tritiya|2023-04-23|False
+2023|Guru Purnima|2023-07-03|False
+2023|Krishna Janmashtami|2023-09-06|True
+2023|Vinayaka Chaturthi|2023-09-19|False
+2023|Sharad Navaratri begins|2023-10-15|False
+2023|Vijayadashami|2023-10-24|False
+2023|Naraka Chaturdashi|2023-11-12|False
+2023|Deepavali|2023-11-12|False
+2023|Karwa Chauth|2023-11-01|False
+2023|Karthika Purnima|2023-11-27|False
+2023|Vaikuntha Ekadashi|2023-12-23|False
+2023|Maha Shivaratri|2023-02-18|False
+2023|Holika Dahan|2023-03-06|False
+2024|Ugadi|2024-04-09|False
+2024|Rama Navami|2024-04-17|False
+2024|Akshaya Tritiya|2024-05-10|False
+2024|Guru Purnima|2024-07-21|False
+2024|Krishna Janmashtami|2024-08-26|False
+2024|Vinayaka Chaturthi|2024-09-07|False
+2024|Sharad Navaratri begins|2024-10-03|False
+2024|Vijayadashami|2024-10-12|False
+2024|Naraka Chaturdashi|2024-10-31|False
+2024|Deepavali|2024-10-31|False
+2024|Karwa Chauth|2024-10-20|False
+2024|Karthika Purnima|2024-11-15|False
+2024|Vaikuntha Ekadashi|2024-12-11|False
+2024|Maha Shivaratri|2024-03-08|False
+2024|Holika Dahan|2024-03-24|False
+2025|Ugadi|2025-03-30|False
+2025|Rama Navami|2025-04-06|False
+2025|Akshaya Tritiya|2025-04-30|False
+2025|Guru Purnima|2025-07-10|False
+2025|Krishna Janmashtami|2025-08-15|True
+2025|Vinayaka Chaturthi|2025-08-27|False
+2025|Sharad Navaratri begins|2025-09-22|False
+2025|Vijayadashami|2025-10-02|False
+2025|Naraka Chaturdashi|2025-10-20|False
+2025|Deepavali|2025-10-20|False
+2025|Karthika Purnima|2025-11-05|False
+2025|Vaikuntha Ekadashi|2025-12-01|False
+2025|Maha Shivaratri|2025-02-26|False
+2025|Holika Dahan|2025-03-13|False
+2026|Ugadi|2026-03-19|False
+2026|Rama Navami|2026-03-26|False
+2026|Akshaya Tritiya|2026-04-20|False
+2026|Guru Purnima|2026-07-29|False
+2026|Krishna Janmashtami|2026-09-04|False
+2026|Vinayaka Chaturthi|2026-09-14|False
+2026|Sharad Navaratri begins|2026-10-11|False
+2026|Vijayadashami|2026-10-20|False
+2026|Naraka Chaturdashi|2026-11-08|False
+2026|Deepavali|2026-11-08|False
+2026|Karwa Chauth|2026-10-29|False
+2026|Karthika Purnima|2026-11-24|False
+2026|Vaikuntha Ekadashi|2026-12-20|False
+2026|Maha Shivaratri|2026-02-15|False
+2026|Holika Dahan|2026-03-02|False
+2027|Ugadi|2027-04-07|False
+2027|Rama Navami|2027-04-15|False
+2027|Akshaya Tritiya|2027-05-09|False
+2027|Guru Purnima|2027-07-18|False
+2027|Krishna Janmashtami|2027-08-24|True
+2027|Vinayaka Chaturthi|2027-09-04|False
+2027|Sharad Navaratri begins|2027-09-30|False
+2027|Vijayadashami|2027-10-09|False
+2027|Naraka Chaturdashi|2027-10-28|False
+2027|Deepavali|2027-10-29|False
+2027|Karwa Chauth|2027-10-18|False
+2027|Karthika Purnima|2027-11-14|False
+2027|Vaikuntha Ekadashi|2027-12-09|False
+2027|Maha Shivaratri|2027-03-06|False
+2027|Holika Dahan|2027-03-21|False
+2028|Ugadi|2028-03-27|False
+2028|Rama Navami|2028-04-03|False
+2028|Akshaya Tritiya|2028-04-27|False
+2028|Guru Purnima|2028-07-06|False
+2028|Krishna Janmashtami|2028-08-13|False
+2028|Vinayaka Chaturthi|2028-08-23|False
+2028|Sharad Navaratri begins|2028-09-19|False
+2028|Vijayadashami|2028-09-27|False
+2028|Naraka Chaturdashi|2028-10-17|False
+2028|Deepavali|2028-10-17|False
+2028|Karwa Chauth|2028-10-07|False
+2028|Karthika Purnima|2028-11-02|False
+2028|Vaikuntha Ekadashi|2028-11-27|False
+2028|Maha Shivaratri|2028-02-23|False
+2028|Holika Dahan|2028-03-10|False
+2029|Ugadi|2029-04-14|False
+2029|Rama Navami|2029-04-22|False
+2029|Akshaya Tritiya|2029-05-16|False
+2029|Guru Purnima|2029-07-25|False
+2029|Krishna Janmashtami|2029-08-31|True
+2029|Vinayaka Chaturthi|2029-09-11|False
+2029|Sharad Navaratri begins|2029-10-08|False
+2029|Vijayadashami|2029-10-16|False
+2029|Naraka Chaturdashi|2029-11-05|False
+2029|Deepavali|2029-11-05|False
+2029|Karwa Chauth|2029-10-26|False
+2029|Karthika Purnima|2029-11-21|False
+2029|Vaikuntha Ekadashi|2029-12-16|False
+2029|Maha Shivaratri|2029-02-11|False
+2029|Holika Dahan|2029-02-28|False
+2030|Ugadi|2030-04-03|False
+2030|Rama Navami|2030-04-12|False
+2030|Akshaya Tritiya|2030-05-05|False
+2030|Guru Purnima|2030-07-15|False
+2030|Krishna Janmashtami|2030-08-20|True
+2030|Vinayaka Chaturthi|2030-09-01|False
+2030|Sharad Navaratri begins|2030-09-28|False
+2030|Vijayadashami|2030-10-06|False
+2030|Naraka Chaturdashi|2030-10-25|False
+2030|Deepavali|2030-10-26|False
+2030|Karwa Chauth|2030-10-15|False
+2030|Karthika Purnima|2030-11-10|False
+2030|Vaikuntha Ekadashi|2030-12-05|False
+2030|Maha Shivaratri|2030-03-02|False
+2030|Holika Dahan|2030-03-19|False

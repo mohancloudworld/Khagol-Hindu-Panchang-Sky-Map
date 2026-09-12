@@ -103,6 +103,20 @@ export function raDecToVec(raDeg, decDeg) {
   return [Math.cos(dec) * Math.cos(ra), Math.cos(dec) * Math.sin(ra), Math.sin(dec)];
 }
 
+// Unit vector `angleDeg` away from `from`, along the great circle running toward `toward`.
+// The Sun/Moon are drawn many times their true size, so an eclipse shadow has to be pushed
+// out by the same exaggeration to stay in the right place relative to the sprite; this walks
+// it along the real sky direction (toward the antisolar point) by the exaggerated angle.
+export function offsetVec(from, toward, angleDeg) {
+  const d = from[0] * toward[0] + from[1] * toward[1] + from[2] * toward[2];
+  let p = [toward[0] - d * from[0], toward[1] - d * from[1], toward[2] - d * from[2]];
+  const n = Math.hypot(p[0], p[1], p[2]);
+  if (n < 1e-12) return from.slice();          // degenerate: shadow dead-centre on the body
+  p = [p[0] / n, p[1] / n, p[2] / n];
+  const a = angleDeg * DEG, c = Math.cos(a), s = Math.sin(a);
+  return [from[0] * c + p[0] * s, from[1] * c + p[1] * s, from[2] * c + p[2] * s];
+}
+
 export function vecToRaDec(v) {
   const ra = Math.atan2(v[1], v[0]) * RAD;
   const dec = Math.asin(Math.max(-1, Math.min(1, v[2]))) * RAD;

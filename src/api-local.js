@@ -1,12 +1,13 @@
-// Local data/API layer — same exports and return shapes as a fetch-based api.js, but computed
-// locally (Swiss Eph Moshier WASM + bundled JSON) instead of fetching /api/*. The front end
-// re-exports this as ./api.js. All compute is validated against an independent Python reference
-// (pyswisseph Moshier + Skyfield) to sub-arcsecond agreement.
+// Drop-in replacement for the app's static/js/api.js — same exports, same return shapes, but
+// computed locally (Swiss Eph Moshier WASM + bundled JSON) instead of fetching /api/*.
+// The front end (re-exporting this as ./api.js) is unchanged. All compute is validated against
+// the app in extension/test/.
 import * as swe from "./sweph.js";
 import { buildPanchang, buildMonth } from "./buildpanchang.js";
 import { computeSky } from "./sky.js";
 import { computeOrrery, computeTrails } from "./orrery.js";
 import { computeKundali } from "./kundali.js";
+import { matchKundali } from "./matching.js";
 import { offsetHours } from "./tz.js";
 
 // Lazy one-time WASM init.
@@ -79,6 +80,14 @@ export async function fetchKundali({ dt, lat, lon, tz = "auto", node = "mean", a
   const result = computeKundali(localIsoToUTC(dt, zone), lat, lon, { node, ayanamsa, zone });
   result.location = { lat, lon, tz: zone };
   return result;
+}
+export async function fetchMatch({ a, b, node = "mean", ayanamsa = "lahiri" }) {
+  await ready();
+  const zoneA = await resolveZone(a.lat, a.lon, a.tz || "auto");
+  const zoneB = await resolveZone(b.lat, b.lon, b.tz || "auto");
+  const kundaliA = computeKundali(localIsoToUTC(a.dt, zoneA), a.lat, a.lon, { node, ayanamsa, zone: zoneA });
+  const kundaliB = computeKundali(localIsoToUTC(b.dt, zoneB), b.lat, b.lon, { node, ayanamsa, zone: zoneB });
+  return matchKundali(kundaliA, kundaliB);
 }
 
 // --- refetch policy + debounce (copied verbatim from api.js) ---------------

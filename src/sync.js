@@ -4,7 +4,7 @@
 //
 //   { lat, lon, zone, label, wall }   wall = "YYYY-MM-DDTHH:MM" (a pinned local time) or null = "now"
 
-const B = globalThis.browser ?? globalThis.chrome;
+import { B } from "./storage-shim.js";
 const KEY = "sync";
 
 export async function getSync() {

@@ -1,10 +1,11 @@
-// South-Indian Kundali chart (chart + birth panchang).
+// South-Indian Kundali chart — ported from app/panchang/kundali.py (chart + birth panchang).
 // Dasha (vimshottari) and the interpretation layer are deferred to a later module.
 import * as swe from "./sweph.js";
 import { tithi, yoga, karana, varaForWeekday } from "./panchang.js";
 import { vimshottari } from "./dasha.js";
 import { governingSunrise, ymdOfInstant, jdToDate } from "./suntime.js";
 import { NAKSHATRA, RASHI } from "./names.js";
+import { interpret } from "./interpret.js";
 
 const GRAHAS = ["sun", "moon", "mars", "mercury", "jupiter", "saturn", "venus"];
 const DISPLAY = { sun: "Surya", moon: "Chandra", mars: "Mangala", mercury: "Budha", jupiter: "Guru", venus: "Shukra", saturn: "Shani", rahu: "Rahu", ketu: "Ketu" };
@@ -68,10 +69,22 @@ export function computeKundali(dtUTC, lat, lon, { node = "mean", ayanamsa = "lah
   };
 
   const d = vimshottari(moon.lon, dtUTC, now, zone);
+
+  // Gochara: CURRENT (transit) rashis at `now`, for the interpretation layer (Section 9C.5).
+  const jdNow = jdFromDate(now);
+  const gochara = {};
+  for (const gid of GRAHAS) gochara[gid] = Math.floor(swe.longitude(jdNow, gid, ayanamsa) / 30);
+  const rahuLonNow = swe.longitude(jdNow, nodeBody, ayanamsa);
+  gochara.rahu = Math.floor(rahuLonNow / 30);
+  gochara.ketu = Math.floor(((rahuLonNow + 180) % 360) / 30);
+
+  const interpretation = interpret(grahas, lagna, d.current_dasha, gochara);
+
   return {
     lagna, grahas, rasi_chart, navamsa_chart, birth_panchang,
     dashas: d.dashas, current_dasha: d.current_dasha,
     dasha_summary: { janma_lord: d.janma_lord, balance_years: d.balance_years },
+    interpretation,
     ayanamsa, node,
   };
 }

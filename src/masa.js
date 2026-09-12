@@ -1,4 +1,4 @@
-// Amanta masa + adhika detection + samvatsara.
+// Amanta masa + adhika detection + samvatsara — ported from app/panchang/masa.py.
 // Lunar month bounded by two new moons; the Sun's rashi at each names the month / reveals adhika.
 import * as swe from "./sweph.js";
 import { tithi } from "./panchang.js";
