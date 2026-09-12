@@ -3,6 +3,10 @@
 // notification for anything landing on the device's date — fully offline. Preferences live in
 // localStorage; the plan is recomputed (and re-pushed) on every app start and settings change,
 // so it can only go stale if the app isn't opened for a year.
+//
+// `lead` is the notice period in DAYS: each event is planned on (its date − lead) so the
+// notification says "Deepavali — in 3 days", not "today" (which is too late to prepare for).
+// The native side needs nothing new for this: it still just fires whatever is dated today.
 import * as api from "./api.js";
 import * as sev from "../src/savedevents.js";
 
@@ -10,27 +14,46 @@ const KEY = "notifyPrefs";
 export const available = () => !!globalThis.KhagolAndroid?.setNotifications;
 
 export function getPrefs() {
-  try { return { enabled: false, fest: true, saved: true, ecl: true, eclVisibleOnly: false, hour: 7, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; }
-  catch { return { enabled: false, fest: true, saved: true, ecl: true, eclVisibleOnly: false, hour: 7 }; }
+  const d = { enabled: false, fest: true, saved: true, ecl: true, eclVisibleOnly: false, hour: 7, lead: 3 };
+  try { return { ...d, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; }
+  catch { return d; }
 }
 export function setPrefs(p) {
   try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* quota */ }
 }
 
-// Next 12 months (starting this month) of [{date, title, detail}] for the given location.
-async function computePlan({ fest, saved, ecl, eclVisibleOnly, lat, lon, tz, ayanamsa }) {
+// "YYYY-MM-DD" shifted by `days` (calendar arithmetic, zone-free).
+export const shiftYmd = (ymd, days) => {
+  if (!days) return ymd;
+  const d = new Date(Date.UTC(+ymd.slice(0, 4), +ymd.slice(5, 7) - 1, +ymd.slice(8, 10) + days));
+  return d.toISOString().slice(0, 10);
+};
+const leadWord = (n) => (n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`);
+// Short human date for the detail line: "Sun 8 Nov".
+const shortDate = (ymd) => new Date(`${ymd}T00:00:00Z`)
+  .toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+
+// Next 12 months (starting this month) of [{date, title, detail}] for the given location, each
+// event planned `lead` days early. A 13th month is scanned so events just past the horizon
+// still get their early notice.
+async function computePlan({ fest, saved, ecl, eclVisibleOnly, lead = 0, lat, lon, tz, ayanamsa }) {
   const now = new Date();
   const plan = [];
   const savedEvents = saved ? await sev.listEvents() : [];
-  for (let i = 0; i < 12; i++) {
+  // One event -> one plan entry, dated `lead` days before it; the title says how far off it is.
+  const add = (date, title, detail) => plan.push({
+    date: shiftYmd(date, -lead),
+    title: lead ? `${title} — ${leadWord(lead)}` : title,
+    detail: lead ? `${shortDate(date)} · ${detail}` : detail,
+  });
+  for (let i = 0; i < 13; i++) {
     const y = now.getFullYear() + Math.floor((now.getMonth() + i) / 12);
     const m = ((now.getMonth() + i) % 12) + 1;
     const days = await api.fetchMonth(y, m, lat, lon, tz, ayanamsa);
     for (const day of days) {
       if (fest) {
         for (const f of day.festivals || []) {
-          plan.push({ date: day.date, title: f.name,
-            detail: `${day.masa} ${day.paksha} ${day.tithi_at_sunrise} · Khagol` });
+          add(day.date, f.name, `${day.masa} ${day.paksha} ${day.tithi_at_sunrise} · Khagol`);
         }
       }
       // Grahana fires on the eclipse's own local date like the rest; the detail line carries
@@ -46,17 +69,13 @@ async function computePlan({ fest, saved, ecl, eclVisibleOnly, lat, lon, tz, aya
           const win = g.kind === "lunar"
             ? `${clock(g.partial_begin_local || g.penumbral_begin_local)}–${clock(g.partial_end_local || g.penumbral_end_local)}`
             : `${clock((g.local && g.local.first_contact_local) || g.begin_local)}–${clock((g.local && g.local.fourth_contact_local) || g.end_local)}`;
-          plan.push({
-            date: day.date,
-            title: `${g.kind === "lunar" ? "☾" : "☉"} ${g.grahana} — ${g.type}`,
-            detail: `${win}${g.visible_here === false ? " · not visible here" : ""} · Khagol`,
-          });
+          add(day.date, `${g.kind === "lunar" ? "☾" : "☉"} ${g.grahana} — ${g.type}`,
+            `${win}${g.visible_here === false ? " · not visible here" : ""} · Khagol`);
         }
       }
       if (saved && savedEvents.length) {
         for (const e of sev.matchDay(day.masa, day.tithi_n, savedEvents)) {
-          plan.push({ date: day.date, title: `★ ${e.label}`,
-            detail: `${e.masa} ${e.paksha} ${e.tithi_name} · Khagol` });
+          add(day.date, `★ ${e.label}`, `${e.masa} ${e.paksha} ${e.tithi_name} · Khagol`);
         }
       }
     }
@@ -74,7 +93,8 @@ export async function syncNotifications(loc) {
     return { pushed: true, n: 0 };
   }
   const plan = await computePlan({ fest: p.fest, saved: p.saved, ecl: p.ecl,
-    eclVisibleOnly: p.eclVisibleOnly, ...loc, ayanamsa: loc.ayanamsa });
+    eclVisibleOnly: p.eclVisibleOnly, lead: Math.max(0, Math.min(30, +p.lead || 0)),
+    ...loc, ayanamsa: loc.ayanamsa });
   globalThis.KhagolAndroid.setNotifications(JSON.stringify(plan), p.hour, true);
   return { pushed: true, n: plan.length };
 }
@@ -103,11 +123,7 @@ function minusMin(hms, min) {
   while (t < 0) { t += 1440; shift -= 1; }
   return [shift, `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`];
 }
-const shiftDate = (ymd, days) => {
-  if (!days) return ymd;
-  const d = new Date(Date.UTC(+ymd.slice(0, 4), +ymd.slice(5, 7) - 1, +ymd.slice(8, 10) + days));
-  return d.toISOString().slice(0, 10);
-};
+const shiftDate = shiftYmd;
 
 // Next ~45 days of ring instants [{at:"YYYY-MM-DDTHH:MM", title}] for the enabled kinds.
 async function computeWakePlan({ sunrise, brahma, offset, lat, lon, tz, ayanamsa }) {

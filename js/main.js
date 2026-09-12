@@ -727,9 +727,11 @@ async function renderSavedPanel() {
       <label class="se-x-opt"><input type="checkbox" id="nx-saved"> Saved dates</label>
       <label class="se-x-opt"><input type="checkbox" id="nx-ecl"> Eclipses</label>
       <label class="se-x-opt se-x-sub"><input type="checkbox" id="nx-ecl-vis"> only if visible here</label>
+      <label class="se-x-opt">Notice <select id="nx-lead"></select></label>
       <label class="se-x-opt">At <select id="nx-hour"></select></label>
-      <div class="se-x-hint">A notification on the morning of each festival / saved tithi / grahana (next 12 months,
-        this location) — works fully offline; the schedule refreshes every time you open the app.</div>
+      <div class="se-x-hint">One notification per festival / saved tithi / grahana, the chosen number of days
+        ahead of it (next 12 months, this location) — works fully offline; the schedule refreshes every
+        time you open the app.</div>
     </div>
     <div class="se-export" id="se-wake" hidden>
       <div class="se-x-title">🌅 Wake alarms (daily-changing times)</div>
@@ -773,17 +775,23 @@ async function renderSavedPanel() {
     nCard.hidden = false;
     const on = nCard.querySelector("#nx-on"), nf = nCard.querySelector("#nx-fest"),
       ns = nCard.querySelector("#nx-saved"), ne = nCard.querySelector("#nx-ecl"),
-      nev = nCard.querySelector("#nx-ecl-vis"), nh = nCard.querySelector("#nx-hour");
+      nev = nCard.querySelector("#nx-ecl-vis"), nh = nCard.querySelector("#nx-hour"),
+      nl = nCard.querySelector("#nx-lead");
     nh.innerHTML = Array.from({ length: 24 }, (_, h) =>
       `<option value="${h}">${String(h).padStart(2, "0")}:00</option>`).join("");
+    // Notice period in days. "On the day" stays available, but the default is 3 days: a
+    // reminder that arrives the morning of a festival is too late to do anything about it.
+    nl.innerHTML = [0, 1, 2, 3, 5, 7, 10, 14, 21, 30].map((d) =>
+      `<option value="${d}">${d === 0 ? "on the day" : d === 1 ? "1 day before" : `${d} days before`}</option>`).join("");
     const p = notify.getPrefs();
     on.checked = p.enabled; nf.checked = p.fest; ns.checked = p.saved; ne.checked = p.ecl;
     nev.checked = p.eclVisibleOnly; nev.disabled = !p.ecl;
     nh.value = String(p.hour);
+    nl.value = String([0, 1, 2, 3, 5, 7, 10, 14, 21, 30].includes(+p.lead) ? p.lead : 3);
     const apply = async () => {
       nev.disabled = !ne.checked;
       notify.setPrefs({ enabled: on.checked, fest: nf.checked, saved: ns.checked, ecl: ne.checked,
-        eclVisibleOnly: nev.checked, hour: +nh.value });
+        eclVisibleOnly: nev.checked, hour: +nh.value, lead: +nl.value });
       try {
         const r = await notify.syncNotifications({ lat: state.get("lat"), lon: state.get("lon"),
           tz: state.get("tz"), ayanamsa: state.get("ayanamsa") });
@@ -791,7 +799,7 @@ async function renderSavedPanel() {
         else toast("Reminders off");
       } catch (e) { toast(`Reminder setup failed: ${e?.message || e}`); }
     };
-    for (const el of [on, nf, ns, ne, nev, nh]) el.addEventListener("change", apply);
+    for (const el of [on, nf, ns, ne, nev, nh, nl]) el.addEventListener("change", apply);
   }
   // Wake alarms (Android only): exact alarms at each day's computed sunrise / brahma time.
   const wCard = host.querySelector("#se-wake");

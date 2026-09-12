@@ -13,8 +13,9 @@ All notable changes to Khagol are documented here. This project adheres to
   popup, `.ics` export and reminders (with an opt-in "only if visible here" filter).
 - **Match (Kundali Milan)**: 36-guna ashtakoota matching between two charts; plain-language Kundali
   interpretation; day guidance card.
-- **Reminders and wake alarms** (Android): festival / saved-tithi / eclipse notifications and exact
-  alarms at brahma muhurta or sunrise, re-planned when the location changes.
+- **Reminders and wake alarms** (Android): festival / saved-tithi / eclipse notifications a chosen
+  number of days ahead (default 3), and exact alarms at brahma muhurta or sunrise, re-planned when
+  the location changes.
 - **Calendar export**: festivals, saved dates and eclipses as `.ics`.
 - **Typed dates everywhere**: year / month / day boxes (with a 📅 picker) on every date field; the
   month calendar gains month / year selectors, year arrows and Today; the day card gains prev/next

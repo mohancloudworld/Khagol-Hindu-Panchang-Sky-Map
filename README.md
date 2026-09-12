@@ -55,8 +55,8 @@ The **Stars** toggle in action — the 2D dome with and without the catalogue st
   drawn eclipsed in the sky views, and eclipses are marked in the day card and the month calendar.
 - **Match (Kundali Milan)** — classical 36-guna ashtakoota matching between two charts, and a
   plain-language interpretation of any Kundali (temperament, dignities, houses, dasha timing).
-- **Reminders** *(Android)* — a morning notification for festivals, saved tithis and eclipses, and
-  exact wake alarms at brahma muhurta / sunrise; all scheduled on the device.
+- **Reminders** *(Android)* — a notification a chosen number of days before each festival, saved
+  tithi and eclipse, and exact wake alarms at brahma muhurta / sunrise; all scheduled on the device.
 - **Calendar export** — festivals, saved dates and eclipses as an `.ics` file for Google Calendar
   or any calendar app.
 - **Type any date** — year / month / day boxes on every date field (a birth date decades back is

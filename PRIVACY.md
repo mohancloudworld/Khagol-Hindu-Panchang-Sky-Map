@@ -33,8 +33,8 @@ Khagol; in the browser, remove the extension or clear its storage.
 - **Location** (optional, foreground only) — used only when you tap **📍 Here**, to set the
   observer position for the calculations. Read on the device, never stored remotely, never shared.
   Background location is never requested.
-- **Notifications** — only if you turn on reminders: a notification on the morning of a festival,
-  a saved tithi or an eclipse, scheduled and shown entirely on the device.
+- **Notifications** — only if you turn on reminders: a notification a chosen number of days before
+  a festival, a saved tithi or an eclipse, scheduled and shown entirely on the device.
 - **Alarms & reminders / exact alarms** — only if you turn on wake alarms for brahma muhurta or
   sunrise. These times change every day, so the alarm must fire at an exact minute; it is
   scheduled on the device, and re-armed after a reboot (*receive boot completed*).
